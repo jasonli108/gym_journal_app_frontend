@@ -30,3 +30,16 @@ export const createWorkoutSession = async (sessionData, token) => {
   }
   return response.json();
 };
+
+export const getLastUserWorkouts = async (token, limit) => {
+  const response = await fetch(`${API_BASE_URL}/users/me/workouts/?limit=${limit}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to fetch workout sessions');
+  }
+  return response.json();
+};

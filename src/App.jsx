@@ -3,7 +3,8 @@ import { Routes, Route, Link } from 'react-router-dom';
 import HomePage from './HomePage';
 import UserPage from './UserPage';
 import WorkoutPage from './WorkoutPage';
-import { AuthProvider } from './context/AuthContext';
+import WorkoutPlanPage from './WorkoutPlanPage';
+import { AuthProvider } from './context/AuthProvider';
 import './App.css'; 
 
 function App() {
@@ -20,7 +21,10 @@ function App() {
                 <Link to="/user">User Profile</Link>
               </li>
               <li>
-                <Link to="/workout">Workouts</Link>
+                <Link to="/workout">WorkoutSession</Link>
+              </li>
+              <li>
+                <Link to="/workout-plan">WorkoutPlan</Link>
               </li>
             </ul>
           </nav>
@@ -30,6 +34,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/user" element={<UserPage />} />
             <Route path="/workout" element={<WorkoutPage />} />
+            <Route path="/workout-plan" element={<WorkoutPlanPage />} />
           </Routes>
         </div>
       </div>

@@ -1,6 +1,5 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-
-const AuthContext = createContext(null);
+import React, { useState, useEffect, useCallback } from 'react';
+import AuthContext from './AuthContext'; // Import AuthContext from the new file
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -8,7 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // Function to fetch user data if token exists
-  const fetchUser = async (authToken) => {
+  const fetchUser = useCallback(async (authToken) => {
     if (!authToken) {
       setUser(null);
       setLoading(false);
@@ -41,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setToken, setUser, setLoading]);
 
   useEffect(() => {
     if (token) {
@@ -49,19 +48,19 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, fetchUser]);
 
-  const login = (newToken, userData) => {
+  const login = useCallback((newToken, userData) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
     setUser(userData);
-  };
+  }, [setToken, setUser]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
-  };
+  }, [setToken, setUser]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, fetchUser }}>
@@ -69,5 +68,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);
