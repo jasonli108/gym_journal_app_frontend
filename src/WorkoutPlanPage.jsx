@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { getWorkoutUserPlans, createWorkoutPlan, updateWorkoutPlan, deleteWorkoutPlan } from './services/workoutPlan';
 import { fetchExercises } from './services/workout';
@@ -35,6 +35,15 @@ const formatMuscleGroupForAPI = (group) => {
   return group.charAt(0).toUpperCase() + group.slice(1).toLowerCase();
 };
 
+// Helper to get the previous value of a prop or state
+const usePrevious = (value) => {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+};
+
 const WorkoutPlanPage = () => {
   const { user, token, loading: authLoading } = useAuth();
   const [workoutPlans, setWorkoutPlans] = useState([]);
@@ -68,6 +77,25 @@ const WorkoutPlanPage = () => {
     Saturday: '',
     Sunday: '',
   });
+  const [allExercises, setAllExercises] = useState([]);
+  const [exerciseMap, setExerciseMap] = useState({});
+
+  useEffect(() => {
+    const loadAllExercises = async () => {
+      try {
+        const exercises = await fetchExercises();
+        setAllExercises(exercises);
+        const newMap = exercises.reduce((acc, ex) => {
+          acc[ex.id] = ex.display_name;
+          return acc;
+        }, {});
+        setExerciseMap(newMap);
+      } catch (err) {
+        setError(err.message); // Or some other error handling
+      }
+    };
+    loadAllExercises();
+  }, []);
 
   const fetchPlans = useCallback(async () => {
     if (!token) return;
@@ -87,33 +115,39 @@ const WorkoutPlanPage = () => {
     fetchPlans();
   }, [fetchPlans]);
 
+  const prevDailySelectedMuscleGroups = usePrevious(dailySelectedMuscleGroups);
+
   useEffect(() => {
     const fetchDailyExercises = async (day) => {
       const muscleGroup = dailySelectedMuscleGroups[day];
-      if (!muscleGroup) {
-        setDailyExercises(prev => ({ ...prev, [day]: { exercises: [], loading: false, error: '' } }));
-        return;
-      }
-
       setDailyExercises(prev => ({ ...prev, [day]: { ...prev[day], loading: true, error: '' } }));
       try {
         const formattedMuscleGroup = formatMuscleGroupForAPI(muscleGroup);
         const fetchedExercises = await fetchExercises(formattedMuscleGroup);
         setDailyExercises(prev => ({ ...prev, [day]: { exercises: fetchedExercises, loading: false, error: '' } }));
-        if (fetchedExercises.length > 0) {
-          setDailySelectedExercises(prev => ({ ...prev, [day]: fetchedExercises[0].display_name }));
-        } else {
-          setDailySelectedExercises(prev => ({ ...prev, [day]: '' }));
-        }
+        
+        setDailySelectedExercises(prev => {
+          const currentlySelectedId = prev[day];
+          const isSelectedStillAvailable = fetchedExercises.some(ex => ex.id === currentlySelectedId);
+          if (!isSelectedStillAvailable) {
+            return { ...prev, [day]: fetchedExercises.length > 0 ? fetchedExercises[0].id : '' };
+          }
+          return prev;
+        });
+
       } catch (err) {
         setDailyExercises(prev => ({ ...prev, [day]: { ...prev[day], loading: false, error: err.message } }));
       }
     };
 
-    Object.keys(dailySelectedMuscleGroups).forEach(day => {
-      fetchDailyExercises(day);
-    });
-  }, [dailySelectedMuscleGroups]);
+    if (prevDailySelectedMuscleGroups) {
+      Object.keys(dailySelectedMuscleGroups).forEach(day => {
+        if (prevDailySelectedMuscleGroups[day] !== dailySelectedMuscleGroups[day]) {
+          fetchDailyExercises(day);
+        }
+      });
+    }
+  }, [dailySelectedMuscleGroups, prevDailySelectedMuscleGroups]);
 
   const handleAddPlan = async () => {
     setError('');
@@ -153,11 +187,35 @@ const WorkoutPlanPage = () => {
   };
 
   const handleModifyPlan = (plan) => {
-    setEditingPlan({ 
-        ...plan, 
-        schedule: plan.workoutplan_schedule || {
-            Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: []
-        }
+    const scheduleData = plan.workoutplan_schedule || {};
+    const normalizedSchedule = {};
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    days.forEach(day => {
+      const daySchedule = scheduleData[day] || [];
+      if (Array.isArray(daySchedule)) {
+        normalizedSchedule[day] = daySchedule.map(item => {
+          if (item.exercise && Array.isArray(item.exercise[0])) { // This is the format from the server
+            const exerciseDisplayName = item.exercise[0][0];
+            const exercise = allExercises.find(ex => ex.display_name === exerciseDisplayName);
+            if (exercise) {
+              return {
+                muscle_group: [exercise.muscle_group],
+                exercise: [exercise.id]
+              };
+            }
+          }
+          return item; // Assume it's already in the correct frontend format
+        });
+      } else {
+        normalizedSchedule[day] = [];
+      }
+    });
+
+    setEditingPlan({
+        ...plan,
+        schedule: normalizedSchedule,
+        workoutplanScheduleId: scheduleData.workoutplanScheduleId
     });
   };
 
@@ -172,7 +230,11 @@ const WorkoutPlanPage = () => {
       };
 
       if (editingPlan.workoutplan_id) {
-        await updateWorkoutPlan({ ...planToSave, id: editingPlan.workoutplan_id }, token);
+        // Add workoutplanScheduleId to the schedule object if it exists
+        if (editingPlan.workoutplanScheduleId) {
+          planToSave.workoutplan_schedule.workoutplanScheduleId = editingPlan.workoutplanScheduleId;
+        }
+        await updateWorkoutPlan({ ...planToSave, workoutplan_id: editingPlan.workoutplan_id }, token);
       } else {
         await createWorkoutPlan(planToSave, token);
       }
@@ -203,14 +265,22 @@ const WorkoutPlanPage = () => {
   };
 
   const handleAddToSchedule = (day) => {
-    const exerciseName = dailySelectedExercises[day];
-    if (!exerciseName) return;
+    const exerciseId = dailySelectedExercises[day];
+    if (!exerciseId) return;
+
+    const exercise = allExercises.find(ex => ex.id === exerciseId);
+    if (!exercise) return;
+
+    const newScheduleEntry = {
+      muscle_group: [exercise.muscle_group],
+      exercise: [exercise.id]
+    };
 
     setEditingPlan(prevPlan => ({
       ...prevPlan,
       schedule: {
         ...prevPlan.schedule,
-        [day]: [...prevPlan.schedule[day], { name: exerciseName }]
+        [day]: [...prevPlan.schedule[day], newScheduleEntry]
       }
     }));
   };
@@ -264,9 +334,9 @@ const WorkoutPlanPage = () => {
             <div key={day}>
               <h3>{day}</h3>
               <ul>
-                {editingPlan.schedule[day].map((exercise, index) => (
+                {(editingPlan.schedule[day] || []).map((item, index) => (
                   <li key={index}>
-                    {exercise.name}
+                    {exerciseMap[item.exercise[0]] || item.exercise[0]}
                     <button onClick={() => handleRemoveFromSchedule(day, index)}>Remove</button>
                   </li>
                 ))}
@@ -301,7 +371,7 @@ const WorkoutPlanPage = () => {
                   {!dailyExercises[day].loading &&
                     dailyExercises[day].exercises.length > 0 &&
                     dailyExercises[day].exercises.map((exercise) => (
-                      <option key={exercise.id} value={exercise.display_name}>
+                      <option key={exercise.id} value={exercise.id}>
                         {exercise.display_name}
                       </option>
                     ))}
@@ -331,22 +401,27 @@ const WorkoutPlanPage = () => {
         <button onClick={handleAddPlan}>Add New Workout Plan</button>
       </div>
 
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
       <h2>Your Workout Plans</h2>
       {loading ? (
         <p>Loading workout plans...</p>
       ) : (
         <ul>
-          {workoutPlans.slice(-5).map((plan) => (
-            <li key={plan.workoutplan_id}>
-              {plan.name}
-              <button onClick={() => handleModifyPlan(plan)}>Modify</button>
-              <button onClick={() => handleRemovePlan(plan.workoutplan_id)}>Remove</button>
-            </li>
-          ))}
+          {workoutPlans.length > 0 ? (
+            workoutPlans.map((plan) => (
+              <li key={plan.workoutplan_id}>
+                <strong>{plan.name || plan.workoutplan_summary.goal}</strong>
+                <button onClick={() => handleModifyPlan(plan)} style={{ marginLeft: '10px' }}>Modify</button>
+                <button onClick={() => handleRemovePlan(plan.workoutplan_id)} style={{ marginLeft: '10px' }}>Delete</button>
+              </li>
+            ))
+          ) : (
+            !loading && <p>No workout plans found.</p>
+          )}
         </ul>
       )}
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
 
     </div>
   );

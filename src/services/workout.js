@@ -43,3 +43,34 @@ export const getLastUserWorkouts = async (token, limit) => {
   }
   return response.json();
 };
+
+export const deleteWorkoutSession = async (sessionId, token) => {
+  const response = await fetch(`${API_BASE_URL}/workouts/${sessionId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to delete workout session');
+  }
+  // No content is expected on a successful delete
+};
+
+export const updateWorkoutSession = async (sessionId, sessionData, token) => {
+  const response = await fetch(`${API_BASE_URL}/workouts/${sessionId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(sessionData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to update workout session');
+  }
+  return response.json();
+};

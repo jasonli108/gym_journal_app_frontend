@@ -47,7 +47,7 @@ export const createWorkoutPlan = async (plan, token) => {
 };
 
 export const updateWorkoutPlan = async (plan, token) => {
-  const response = await fetch(`${API_BASE_URL}/workoutplans/${plan.id}/`, {
+  const response = await fetch(`${API_BASE_URL}/workoutplans/${plan.workoutplan_id}/`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
