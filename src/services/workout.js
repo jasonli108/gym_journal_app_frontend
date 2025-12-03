@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:8000';
+import config from '../config';
+
+const { API_BASE_URL } = config;
 
 export const fetchExercises = async (muscleGroup = '') => {
   let url = `${API_BASE_URL}/exercises/`;

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AuthContext from './AuthContext'; // Import AuthContext from the new file
+import config from '../config';
+
+const { API_BASE_URL } = config;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -17,7 +20,8 @@ export const AuthProvider = ({ children }) => {
       // In this prototype, the token is the username, so we can directly set the user
       // In a real application, you'd make an API call to /users/me/ with the token
       // and get the user's details.
-      const response = await fetch('http://localhost:8000/users/me/', {
+      //
+      const response = await fetch(`${API_BASE_URL}/users/me/`, {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }

@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:8000';
+import config from '../config';
+
+const { API_BASE_URL } = config;
 
 
 export const getWorkoutUserPlans = async (token) => {
@@ -47,7 +49,7 @@ export const createWorkoutPlan = async (plan, token) => {
 };
 
 export const updateWorkoutPlan = async (plan, token) => {
-  const response = await fetch(`${API_BASE_URL}/workoutplans/${plan.workoutplan_id}/`, {
+  const response = await fetch(`${API_BASE_URL}/workoutplans/${plan.workoutplan_id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -64,7 +66,7 @@ export const updateWorkoutPlan = async (plan, token) => {
 
 
 export const deleteWorkoutPlan = async (planId, token) => {
-  const response = await fetch(`${API_BASE_URL}/workoutplans/${planId}/`, {
+  const response = await fetch(`${API_BASE_URL}/workoutplans/${planId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
