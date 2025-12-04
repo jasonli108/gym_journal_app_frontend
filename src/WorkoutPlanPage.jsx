@@ -86,7 +86,7 @@ const WorkoutPlanPage = () => {
         const exercises = await fetchExercises();
         setAllExercises(exercises);
         const newMap = exercises.reduce((acc, ex) => {
-          acc[ex.id] = ex.display_name;
+          acc[ex.id] = ex;
           return acc;
         }, {});
         setExerciseMap(newMap);
@@ -311,80 +311,120 @@ const WorkoutPlanPage = () => {
     const summary = editingPlan.workoutplan_summary;
 
     return (
-      <div>
+      <div className="form-container">
         <h1>Edit Workout Plan</h1>
-        
-        <div>
+
+        <div className="form-section">
           <h2>Workout Plan Summary</h2>
-          <div><label>Name: <input type="text" name="name" value={editingPlan.name} onChange={handleNameChange} /></label></div>
-          <div><label>Goal: <input type="text" name="goal" value={summary.goal} onChange={handleSummaryChange} /></label></div>
-          <div><label>Workout Type: <input type="text" name="workout_type" value={summary.workout_type} onChange={handleSummaryChange} /></label></div>
-          <div><label>Training Level: <input type="text" name="training_level" value={summary.training_level} onChange={handleSummaryChange} /></label></div>
-          <div><label>Program Duration: <input type="text" name="program_duration" value={summary.program_duration} onChange={handleSummaryChange} /></label></div>
-          <div><label>Days Per Week: <input type="number" name="days_per_week" value={summary.days_per_week} onChange={handleSummaryChange} /></label></div>
-          <div><label>Time Per Workout: <input type="text" name="time_per_workout" value={summary.time_per_workout} onChange={handleSummaryChange} /></label></div>
-          <div><label>Equipments: <input type="text" name="equipments" value={summary.equipments.join(', ')} onChange={(e) => handleSummaryChange({target: {name: 'equipments', value: e.target.value.split(', ')}})} /></label></div>
-          <div><label>Target Gender: <input type="text" name="target_gender" value={summary.target_gender} onChange={handleSummaryChange} /></label></div>
-          <div><label>Recommended Supplements: <input type="text" name="recommended_supplements" value={summary.recommended_supplements.join(', ')} onChange={(e) => handleSummaryChange({target: {name: 'recommended_supplements', value: e.target.value.split(', ')}})} /></label></div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="name">Name:</label>
+            <input id="name" type="text" name="name" value={editingPlan.name} onChange={handleNameChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="goal">Goal:</label>
+            <textarea id="goal" name="goal" value={summary.goal} onChange={handleSummaryChange} rows="4" className="form-textarea"></textarea>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="workout_type">Workout Type:</label>
+            <input id="workout_type" type="text" name="workout_type" value={summary.workout_type} onChange={handleSummaryChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="training_level">Training Level:</label>
+            <input id="training_level" type="text" name="training_level" value={summary.training_level} onChange={handleSummaryChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="program_duration">Program Duration:</label>
+            <input id="program_duration" type="text" name="program_duration" value={summary.program_duration} onChange={handleSummaryChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="days_per_week">Days Per Week:</label>
+            <input id="days_per_week" type="number" name="days_per_week" value={summary.days_per_week} onChange={handleSummaryChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="time_per_workout">Time Per Workout:</label>
+            <input id="time_per_workout" type="text" name="time_per_workout" value={summary.time_per_workout} onChange={handleSummaryChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="equipments">Equipments:</label>
+            <textarea id="equipments" name="equipments" value={summary.equipments.join(', ')} onChange={(e) => handleSummaryChange({target: {name: 'equipments', value: e.target.value.split(', ')}})} rows="4" className="form-textarea"></textarea>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="target_gender">Target Gender:</label>
+            <input id="target_gender" type="text" name="target_gender" value={summary.target_gender} onChange={handleSummaryChange} className="form-input" />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="recommended_supplements">Recommended Supplements:</label>
+            <textarea id="recommended_supplements" name="recommended_supplements" value={summary.recommended_supplements.join(', ')} onChange={(e) => handleSummaryChange({target: {name: 'recommended_supplements', value: e.target.value.split(', ')}})} rows="4" className="form-textarea"></textarea>
+          </div>
         </div>
 
-        <div>
+        <div className="form-section">
           <h2>Workout Schedule (7 Days)</h2>
-          {daysOfWeek.map(day => (
-            <div key={day}>
-              <h3>{day}</h3>
-              <ul>
-                {(editingPlan.schedule[day] || []).map((item, index) => (
-                  <li key={index}>
-                    {exerciseMap[item.exercise[0]] || item.exercise[0]}
-                    <button onClick={() => handleRemoveFromSchedule(day, index)}>Remove</button>
-                  </li>
-                ))}
-              </ul>
-              <div>
-                <label htmlFor={`muscle-group-select-${day}`}>Muscle Group:</label>
-                <select
-                  id={`muscle-group-select-${day}`}
-                  value={dailySelectedMuscleGroups[day]}
-                  onChange={(e) => setDailySelectedMuscleGroups({ ...dailySelectedMuscleGroups, [day]: e.target.value })}
-                >
-                  <option value="">All Muscle Groups</option>
-                  {MUSCLE_GROUPS.map((group) => (
-                    <option key={group} value={group}>
-                      {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
-                    </option>
-                  ))}
-                </select>
-
-                <label htmlFor={`exercise-select-${day}`}>Exercise:</label>
-                <select
-                  id={`exercise-select-${day}`}
-                  value={dailySelectedExercises[day]}
-                  onChange={(e) => setDailySelectedExercises({ ...dailySelectedExercises, [day]: e.target.value })}
-                  disabled={dailyExercises[day].loading}
-                >
-                  {dailyExercises[day].loading && <option>Loading exercises...</option>}
-                  {dailyExercises[day].error && <option>Error loading exercises</option>}
-                  {!dailyExercises[day].loading && dailyExercises[day].exercises.length === 0 && (
-                    <option>No exercises available</option>
-                  )}
-                  {!dailyExercises[day].loading &&
-                    dailyExercises[day].exercises.length > 0 &&
-                    dailyExercises[day].exercises.map((exercise) => (
-                      <option key={exercise.id} value={exercise.id}>
-                        {exercise.display_name}
-                      </option>
-                    ))}
-                </select>
-                <button onClick={() => handleAddToSchedule(day)}>Add to {day}</button>
+          <div className="schedule-container">
+            {daysOfWeek.map(day => (
+              <div key={day} className="schedule-day">
+                <h3>{day}</h3>
+                <ul className="exercise-list">
+                  {(editingPlan.schedule[day] || []).map((item, index) => {
+                    const exercise = exerciseMap[item.exercise[0]];
+                    return (
+                      <li key={index} className="exercise-list-item">
+                        <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : item.exercise[0]}</span>
+                        <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="add-exercise-controls">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor={`muscle-group-select-${day}`}>Muscle Group:</label>
+                    <select
+                      id={`muscle-group-select-${day}`}
+                      value={dailySelectedMuscleGroups[day]}
+                      onChange={(e) => setDailySelectedMuscleGroups({ ...dailySelectedMuscleGroups, [day]: e.target.value })}
+                      className="form-select"
+                    >
+                      <option value="">All Muscle Groups</option>
+                      {MUSCLE_GROUPS.map((group) => (
+                        <option key={group} value={group}>
+                          {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor={`exercise-select-${day}`}>Exercise:</label>
+                    <select
+                      id={`exercise-select-${day}`}
+                      value={dailySelectedExercises[day]}
+                      onChange={(e) => setDailySelectedExercises({ ...dailySelectedExercises, [day]: e.target.value })}
+                      disabled={dailyExercises[day].loading}
+                      className="form-select"
+                    >
+                      {dailyExercises[day].loading && <option>Loading exercises...</option>}
+                      {dailyExercises[day].error && <option>Error loading exercises</option>}
+                      {!dailyExercises[day].loading && dailyExercises[day].exercises.length === 0 && (
+                        <option>No exercises available</option>
+                      )}
+                      {!dailyExercises[day].loading &&
+                        dailyExercises[day].exercises.length > 0 &&
+                        dailyExercises[day].exercises.map((exercise) => (
+                          <option key={exercise.id} value={exercise.id}>
+                            {exercise.display_name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <button onClick={() => handleAddToSchedule(day)} className="btn btn-primary">Add to {day}</button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div>
-          <button onClick={handleSavePlan}>Save Plan</button>
-          <button onClick={() => setEditingPlan(null)}>Cancel</button>
+        <div className="btn-group">
+          <button onClick={handleSavePlan} className="btn btn-primary">Save Plan</button>
+          <button onClick={() => setEditingPlan(null)} className="btn btn-secondary">Cancel</button>
         </div>
       </div>
     );

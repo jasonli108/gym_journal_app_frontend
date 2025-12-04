@@ -65,7 +65,7 @@ const WorkoutPage = () => {
       setLoadingRecent(true);
       setRecentWorkoutsError('');
       try {
-          const workouts = await getLastUserWorkouts(token, 5);
+          const workouts = await getLastUserWorkouts(token, 8);
           setRecentWorkouts(workouts);
       } catch (err) {
           setRecentWorkoutsError(err.message);
@@ -85,6 +85,14 @@ const WorkoutPage = () => {
     setIsCreatingWorkout(false); // Close creation form if open
   };
 
+  const handleCancelEdit = () => {
+    setEditingSession(null);
+    setSessionDate(new Date().toISOString().split('T')[0]);
+    setCurrentExerciseLogs([]);
+    setWorkoutCreationError('');
+    setWorkoutCreationMessage('');
+  };
+
   const handleDeleteWorkout = async (sessionId) => {
     setRecentWorkoutsError('');
     try {
@@ -92,6 +100,28 @@ const WorkoutPage = () => {
       await fetchRecentWorkouts(); // Refetch recent workouts after deletion
     } catch (err) {
       setRecentWorkoutsError(err.message);
+    }
+  };
+
+  const handleCopyWorkout = (session) => {
+    const newDate = prompt("Please enter the new date for the workout session (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (newDate) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(newDate)) {
+        alert("Invalid date format. Please use YYYY-MM-DD.");
+        return;
+      }
+      
+      setEditingSession(null);
+      setIsCreatingWorkout(true);
+      setSessionDate(newDate);
+      // Deep copy exercises to avoid reference issues
+      const copiedExercises = JSON.parse(JSON.stringify(session.exercises));
+      setCurrentExerciseLogs(copiedExercises);
+      setWorkoutCreationMessage('Workout session copied. Adjust as needed and save.');
+      setWorkoutCreationError('');
+      // Scroll to the form
+      window.scrollTo(0, 0);
     }
   };
 
@@ -182,7 +212,7 @@ const WorkoutPage = () => {
 
   if (!user) {
     return (
-      <div>
+      <div className="main-content">
         <h1>Workout Page</h1>
         <p>Please log in to view and create workout sessions.</p>
       </div>
@@ -190,90 +220,121 @@ const WorkoutPage = () => {
   }
 
   const workoutForm = (
-    <div style={{ border: '1px solid #ccc', padding: '20px', marginTop: '20px', marginBottom: '20px' }}>
-      <h3>{editingSession ? 'Edit Workout Session' : 'New Workout Session'}</h3>
-      {workoutCreationError && <p style={{ color: 'red' }}>{workoutCreationError}</p>}
-      {workoutCreationMessage && <p style={{ color: 'green' }}>{workoutCreationMessage}</p>}
+    <div className="form-container" style={{ marginTop: '20px', marginBottom: '20px' }}>
+      <div className="form-section">
+        <h3>{editingSession ? 'Edit Workout Session' : 'New Workout Session'}</h3>
+        {workoutCreationError && <p style={{ color: '#cf6679' }}>{workoutCreationError}</p>}
+        {workoutCreationMessage && <p style={{ color: '#bb86fc' }}>{workoutCreationMessage}</p>}
 
-      <div>
-        <label htmlFor="session-date">Session Date:</label>
-        <input type="date" id="session-date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} required />
+        <div className="form-group">
+          <label className="form-label" htmlFor="session-date">Session Date:</label>
+          <input type="date" id="session-date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} required className="form-input" />
+        </div>
       </div>
 
-      <h4 style={{ marginTop: '20px' }}>Add Exercises</h4>
-      <div>
-        <label htmlFor="muscle-group-select">Muscle Group:</label>
-        <select id="muscle-group-select" value={selectedMuscleGroup} onChange={(e) => setSelectedMuscleGroup(e.target.value)}>
-          <option value="">All Muscle Groups</option>
-          {MUSCLE_GROUPS.map((group) => (
-            <option key={group} value={group}>
-              {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
-            </option>
-          ))}
-        </select>
-
-        <label htmlFor="exercise-select">Exercise:</label>
-        <select id="exercise-select" value={selectedExerciseForAdd} onChange={(e) => setSelectedExerciseForAdd(e.target.value)} disabled={loadingExercises}>
-          {loadingExercises && <option>Loading exercises...</option>}
-          {!loadingExercises && exercises.map((exercise) => (
-            <option key={exercise.id} value={exercise.display_name}>{exercise.display_name}</option>
-          ))}
-        </select>
-
-        <label>Sets:</label>
-        <input type="number" value={sets} onChange={(e) => setSets(e.target.value)} min="1" required />
-        <label>Reps:</label>
-        <input type="number" value={reps} onChange={(e) => setReps(e.target.value)} min="1" required />
-        <label>Weight (kg):</label>
-        <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} min="0" step="0.1" />
-        <button onClick={handleAddExercise}>Add Exercise</button>
+      <div className="form-section">
+        <h4>Add Exercises</h4>
+        <div className="form-group">
+          <label className="form-label" htmlFor="muscle-group-select">Muscle Group:</label>
+          <select id="muscle-group-select" value={selectedMuscleGroup} onChange={(e) => setSelectedMuscleGroup(e.target.value)} className="form-select">
+            <option value="">All Muscle Groups</option>
+            {MUSCLE_GROUPS.map((group) => (
+              <option key={group} value={group}>
+                {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="exercise-select">Exercise:</label>
+          <select id="exercise-select" value={selectedExerciseForAdd} onChange={(e) => setSelectedExerciseForAdd(e.target.value)} disabled={loadingExercises} className="form-select">
+            {loadingExercises && <option>Loading exercises...</option>}
+            {!loadingExercises && exercises.map((exercise) => (
+              <option key={exercise.id} value={exercise.display_name}>{exercise.display_name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Sets:</label>
+          <input type="number" value={sets} onChange={(e) => setSets(e.target.value)} min="1" required className="form-input" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Reps:</label>
+          <input type="number" value={reps} onChange={(e) => setReps(e.target.value)} min="1" required className="form-input" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Weight (kg):</label>
+          <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} min="0" step="0.1" className="form-input" />
+        </div>
+        <button onClick={handleAddExercise} className="btn btn-primary">Add Exercise</button>
       </div>
 
-      <h4 style={{ marginTop: '20px' }}>Exercises in Current Session:</h4>
-      <ul>
-        {currentExerciseLogs.map((log, index) => (
-          <li key={index}>
-            {log.exercise} - {log.sets} sets x {log.reps} reps {log.weight_kg ? `x ${log.weight_kg}kg` : ''}
-            <button onClick={() => handleRemoveExercise(index)}>Remove</button>
-          </li>
-        ))}
-      </ul>
-      <button onClick={handleCreateOrUpdateWorkoutSession}>{editingSession ? 'Update Workout Session' : 'Submit Workout Session'}</button>
+      <div className="form-section">
+        <h4>Exercises in Current Session:</h4>
+        <ul className="exercise-list">
+          {currentExerciseLogs.map((log, index) => (
+            <li key={index} className="exercise-list-item">
+              <span>{log.exercise} - {log.sets} sets x {log.reps} reps {log.weight_kg ? `x ${log.weight_kg}kg` : ''}</span>
+              <button onClick={() => handleRemoveExercise(index)} className="btn btn-danger btn-sm">Remove</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="btn-group">
+        <button onClick={handleCreateOrUpdateWorkoutSession} className="btn btn-primary">
+          {editingSession ? 'Update Workout Session' : 'Submit Workout Session'}
+        </button>
+        {editingSession && <button onClick={handleCancelEdit} className="btn btn-secondary">Cancel</button>}
+        {!editingSession && isCreatingWorkout && (
+            <button onClick={() => {
+                setIsCreatingWorkout(false);
+                setSessionDate(new Date().toISOString().split('T')[0]);
+                setCurrentExerciseLogs([]);
+                setWorkoutCreationError('');
+                setWorkoutCreationMessage('');
+            }} className="btn btn-secondary">Cancel</button>
+        )}
+      </div>
     </div>
   );
 
   return (
-    <div>
+    <div className="main-content">
       <h1>Workout Page</h1>
       <p>Welcome, {user.username}! Here you can create and view your workouts.</p>
 
-      {!editingSession && (
-        <button onClick={() => { setIsCreatingWorkout(!isCreatingWorkout); if (isCreatingWorkout) { setSessionDate(new Date().toISOString().split('T')[0]); setCurrentExerciseLogs([]); setWorkoutCreationError(''); setWorkoutCreationMessage(''); } }}>
-          {isCreatingWorkout ? 'Cancel Workout Creation' : 'Create New Workout Session'}
-        </button>
+      {!isCreatingWorkout && !editingSession && (
+        <div style={{ marginBottom: '20px' }}>
+          <button onClick={() => setIsCreatingWorkout(true)} className="btn btn-primary">
+            Create New Workout Session
+          </button>
+        </div>
       )}
 
       {isCreatingWorkout && !editingSession && workoutForm}
       {editingSession && workoutForm}
       
-      <div style={{ marginTop: '20px' }}>
-        <h2>Last 5 Workout Sessions</h2>
+      <div className="form-container" style={{ marginTop: '20px' }}>
+        <h2>Last 8 Workout Sessions</h2>
         {loadingRecent && <p>Loading recent workouts...</p>}
-        {recentWorkoutsError && <p style={{ color: 'red' }}>{recentWorkoutsError}</p>}
+        {recentWorkoutsError && <p style={{ color: '#cf6679' }}>{recentWorkoutsError}</p>}
         {recentWorkouts.length > 0 ? (
-          <ul>
+          <ul className="exercise-list">
             {recentWorkouts.map((session) => (
-              <li key={session.session_id}>
+              <li key={session.session_id} className="exercise-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
                 <strong>{session.session_date}</strong>
-                <button onClick={() => handleEditWorkout(session)} style={{ marginLeft: '10px' }}>Edit</button>
-                <button onClick={() => handleDeleteWorkout(session.session_id)} style={{ marginLeft: '10px' }}>Delete</button>
-                <ul>
+                <ul className="exercise-list" style={{ width: '100%'}}>
                   {session.exercises.map((ex, index) => (
-                    <li key={index}>
+                    <li key={index} style={{ marginBottom: '5px' }}>
                       {ex.exercise} - {ex.sets} sets x {ex.reps} reps {ex.weight_kg ? `x ${ex.weight_kg}kg` : ''}
                     </li>
                   ))}
                 </ul>
+                <div className="btn-group">
+                  <button onClick={() => handleEditWorkout(session)} className="btn btn-secondary btn-sm">Edit</button>
+                  <button onClick={() => handleDeleteWorkout(session.session_id)} className="btn btn-danger btn-sm">Delete</button>
+                  <button onClick={() => handleCopyWorkout(session)} className="btn btn-secondary btn-sm">Copy</button>
+                </div>
               </li>
             ))}
           </ul>
