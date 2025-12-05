@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { fetchExercises, createWorkoutSession, getLastUserWorkouts, deleteWorkoutSession, updateWorkoutSession } from './services/workout';
 
@@ -52,6 +52,7 @@ const WorkoutPage = () => {
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
+  const [weightUnit, setWeightUnit] = useState('lbs');
   const [workoutCreationMessage, setWorkoutCreationMessage] = useState('');
   const [workoutCreationError, setWorkoutCreationError] = useState('');
   
@@ -60,7 +61,7 @@ const WorkoutPage = () => {
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [recentWorkoutsError, setRecentWorkoutsError] = useState('');
 
-  const fetchRecentWorkouts = async () => {
+  const fetchRecentWorkouts = useCallback(async () => {
       if (!token || !user) return;
       setLoadingRecent(true);
       setRecentWorkoutsError('');
@@ -72,11 +73,11 @@ const WorkoutPage = () => {
       } finally {
           setLoadingRecent(false);
       }
-  };
+  }, [token, user]);
 
   useEffect(() => {
     fetchRecentWorkouts();
-  }, [token, user]);
+  }, [token, user, fetchRecentWorkouts]);
 
   const handleEditWorkout = (session) => {
     setEditingSession(session);
@@ -158,7 +159,7 @@ const WorkoutPage = () => {
       exercise: selectedExerciseForAdd,
       sets: parseInt(sets),
       reps: parseInt(reps),
-      weight_kg: weight ? parseFloat(weight) : null,
+      weight: weight ? { value: parseInt(weight), unit: weightUnit } : null,
     };
     setCurrentExerciseLogs([...currentExerciseLogs, newLog]);
     setSets('');
@@ -263,8 +264,12 @@ const WorkoutPage = () => {
           <input type="number" value={reps} onChange={(e) => setReps(e.target.value)} min="1" required className="form-input" />
         </div>
         <div className="form-group">
-          <label className="form-label">Weight (kg):</label>
+          <label className="form-label">Weight:</label>
           <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} min="0" step="0.1" className="form-input" />
+          <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="form-select" style={{ marginLeft: '10px' }}>
+            <option value="kg">kg</option>
+            <option value="lbs">lbs</option>
+          </select>
         </div>
         <button onClick={handleAddExercise} className="btn btn-primary">Add Exercise</button>
       </div>
@@ -274,7 +279,7 @@ const WorkoutPage = () => {
         <ul className="exercise-list">
           {currentExerciseLogs.map((log, index) => (
             <li key={index} className="exercise-list-item">
-              <span>{log.exercise} - {log.sets} sets x {log.reps} reps {log.weight_kg ? `x ${log.weight_kg}kg` : ''}</span>
+              <span>{log.exercise} - {log.sets} sets x {log.reps} reps {log.weight ? `x ${log.weight.value}${log.weight.unit}` : ''}</span>
               <button onClick={() => handleRemoveExercise(index)} className="btn btn-danger btn-sm">Remove</button>
             </li>
           ))}
@@ -326,7 +331,7 @@ const WorkoutPage = () => {
                 <ul className="exercise-list" style={{ width: '100%'}}>
                   {session.exercises.map((ex, index) => (
                     <li key={index} style={{ marginBottom: '5px' }}>
-                      {ex.exercise} - {ex.sets} sets x {ex.reps} reps {ex.weight_kg ? `x ${ex.weight_kg}kg` : ''}
+                      {ex.exercise} - {ex.sets} sets x {ex.reps} reps {ex.weight ? `x ${ex.weight.value}${ex.weight.unit}` : ''}
                     </li>
                   ))}
                 </ul>

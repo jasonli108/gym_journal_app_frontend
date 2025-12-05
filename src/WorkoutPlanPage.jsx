@@ -35,14 +35,7 @@ const formatMuscleGroupForAPI = (group) => {
   return group.charAt(0).toUpperCase() + group.slice(1).toLowerCase();
 };
 
-// Helper to get the previous value of a prop or state
-const usePrevious = (value) => {
-  const ref = useRef();
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref.current;
-};
+
 
 const WorkoutPlanPage = () => {
   const { user, token, loading: authLoading } = useAuth();
@@ -115,7 +108,7 @@ const WorkoutPlanPage = () => {
     fetchPlans();
   }, [fetchPlans]);
 
-  const prevDailySelectedMuscleGroups = usePrevious(dailySelectedMuscleGroups);
+  const prevDailySelectedMuscleGroupsRef = useRef();
 
   useEffect(() => {
     const fetchDailyExercises = async (day) => {
@@ -140,6 +133,7 @@ const WorkoutPlanPage = () => {
       }
     };
 
+    const prevDailySelectedMuscleGroups = prevDailySelectedMuscleGroupsRef.current;
     if (prevDailySelectedMuscleGroups) {
       Object.keys(dailySelectedMuscleGroups).forEach(day => {
         if (prevDailySelectedMuscleGroups[day] !== dailySelectedMuscleGroups[day]) {
@@ -147,7 +141,9 @@ const WorkoutPlanPage = () => {
         }
       });
     }
-  }, [dailySelectedMuscleGroups, prevDailySelectedMuscleGroups]);
+
+    prevDailySelectedMuscleGroupsRef.current = dailySelectedMuscleGroups;
+  }, [dailySelectedMuscleGroups]);
 
   const handleAddPlan = async () => {
     setError('');
