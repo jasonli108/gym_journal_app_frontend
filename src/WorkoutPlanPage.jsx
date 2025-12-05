@@ -364,11 +364,10 @@ const WorkoutPlanPage = () => {
                   {(editingPlan.schedule[day] || []).map((item, index) => {
                     const exercise = exerciseMap[item.exercise[0]];
                     return (
-                      <li key={index} className="exercise-list-item">
-                        <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : item.exercise[0]}</span>
-                        <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
-                      </li>
-                    );
+                                          <li key={index} className="exercise-list-item">
+                                              <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : (typeof item.exercise[0] === 'object' ? item.exercise[0].display_name : item.exercise[0])}</span>
+                                              <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
+                                          </li>                    );
                   })}
                 </ul>
                 <div className="add-exercise-controls">
