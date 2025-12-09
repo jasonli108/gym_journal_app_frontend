@@ -2,8 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { fetchExercises, createWorkoutSession, getLastUserWorkouts, deleteWorkoutSession, updateWorkoutSession } from './services/workout';
 
-// Hardcoded MuscleGroup enum values from backend/enums.py
-const MUSCLE_GROUPS = [
+const MAJOR_MUSCLE_GROUPS = {
+  ARMS: ['BICEPS', 'TRICEPS', 'FOREARMS'],
+  BACK: ['LATS', 'LOWER_BACK', 'UPPER_BACK', 'TRAPS'],
+  CHEST: ['CHEST'],
+  LEGS: ['ABDUCTORS', 'ADDUCTORS', 'CALVES', 'GLUTES', 'HAMSTRINGS', 'QUADS'],
+  ABS: ['ABS', 'OBLIQUES'],
+  SHOULDER: ['SHOULDERS'],
+};
+
+const ALL_MUSCLE_GROUPS = [
   'ABDUCTORS',
   'ABS',
   'ADDUCTORS',
@@ -12,7 +20,7 @@ const MUSCLE_GROUPS = [
   'CHEST',
   'FOREARMS',
   'GLUTES',
-  'HAMSTRUNGS',
+  'HAMSTRINGS',
   'HIP_FLEXORS',
   'IT_BAND',
   'LATS',
@@ -36,6 +44,7 @@ const formatMuscleGroupForAPI = (group) => {
 
 const WorkoutPage = () => {
   const { user, token, loading: authLoading } = useAuth();
+  const [selectedMajorMuscleGroup, setSelectedMajorMuscleGroup] = useState('');
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
   const [exercises, setExercises] = useState([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
@@ -220,6 +229,10 @@ const WorkoutPage = () => {
     );
   }
 
+  const muscleGroupsForSelectedMajor = selectedMajorMuscleGroup
+    ? MAJOR_MUSCLE_GROUPS[selectedMajorMuscleGroup]
+    : ALL_MUSCLE_GROUPS;
+
   const workoutForm = (
     <div className="form-container" style={{ marginTop: '20px', marginBottom: '20px' }}>
       <div className="form-section">
@@ -236,10 +249,24 @@ const WorkoutPage = () => {
       <div className="form-section">
         <h4>Add Exercises</h4>
         <div className="form-group">
+          <label className="form-label" htmlFor="major-muscle-group-select">Major Muscle Group:</label>
+          <select id="major-muscle-group-select" value={selectedMajorMuscleGroup} onChange={(e) => {
+            setSelectedMajorMuscleGroup(e.target.value);
+            setSelectedMuscleGroup('');
+          }} className="form-select">
+            <option value="">All Major Groups</option>
+            {Object.keys(MAJOR_MUSCLE_GROUPS).map((group) => (
+              <option key={group} value={group}>
+                {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
           <label className="form-label" htmlFor="muscle-group-select">Muscle Group:</label>
           <select id="muscle-group-select" value={selectedMuscleGroup} onChange={(e) => setSelectedMuscleGroup(e.target.value)} className="form-select">
             <option value="">All Muscle Groups</option>
-            {MUSCLE_GROUPS.map((group) => (
+            {muscleGroupsForSelectedMajor.map((group) => (
               <option key={group} value={group}>
                 {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
               </option>

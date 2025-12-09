@@ -3,8 +3,16 @@ import { useAuth } from './context/AuthContext.js';
 import { getWorkoutUserPlans, createWorkoutPlan, updateWorkoutPlan, deleteWorkoutPlan } from './services/workoutPlan';
 import { fetchExercises } from './services/workout';
 
-// Hardcoded MuscleGroup enum values from backend/enums.py
-const MUSCLE_GROUPS = [
+const MAJOR_MUSCLE_GROUPS = {
+  ARMS: ['BICEPS', 'TRICEPS', 'FOREARMS'],
+  BACK: ['LATS', 'LOWER_BACK', 'UPPER_BACK', 'TRAPS'],
+  CHEST: ['CHEST'],
+  LEGS: ['ABDUCTORS', 'ADDUCTORS', 'CALVES', 'GLUTES', 'HAMSTRINGS', 'QUADS'],
+  ABS: ['ABS', 'OBLIQUES'],
+  SHOULDER: ['SHOULDERS'],
+};
+
+const ALL_MUSCLE_GROUPS = [
   'ABDUCTORS',
   'ABS',
   'ADDUCTORS',
@@ -13,7 +21,7 @@ const MUSCLE_GROUPS = [
   'CHEST',
   'FOREARMS',
   'GLUTES',
-  'HAMSTRUNGS',
+  'HAMSTRINGS',
   'HIP_FLEXORS',
   'IT_BAND',
   'LATS',
@@ -29,13 +37,19 @@ const MUSCLE_GROUPS = [
   'TRICEPS',
 ];
 
-const formatMuscleGroupForAPI = (group) => {
-  if (!group) return '';
-  // Convert "ABDUCTORS" to "Abductors"
-  return group.charAt(0).toUpperCase() + group.slice(1).toLowerCase();
+const getMajorMuscleGroup = (muscleGroup) => {
+  for (const majorGroup in MAJOR_MUSCLE_GROUPS) {
+    if (MAJOR_MUSCLE_GROUPS[majorGroup].includes(muscleGroup)) {
+      return majorGroup;
+    }
+  }
+  return null;
 };
 
-
+const formatMuscleGroupForAPI = (group) => {
+  if (!group) return '';
+  return group.charAt(0).toUpperCase() + group.slice(1).toLowerCase();
+};
 
 const WorkoutPlanPage = () => {
   const { user, token, loading: authLoading } = useAuth();
@@ -43,6 +57,15 @@ const WorkoutPlanPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editingPlan, setEditingPlan] = useState(null);
+  const [dailySelectedMajorMuscleGroups, setDailySelectedMajorMuscleGroups] = useState({
+    Monday: '',
+    Tuesday: '',
+    Wednesday: '',
+    Thursday: '',
+    Friday: '',
+    Saturday: '',
+    Sunday: '',
+  });
   const [dailySelectedMuscleGroups, setDailySelectedMuscleGroups] = useState({
     Monday: '',
     Tuesday: '',
@@ -196,6 +219,7 @@ const WorkoutPlanPage = () => {
             const exercise = allExercises.find(ex => ex.display_name === exerciseDisplayName);
             if (exercise) {
               return {
+                major_muscle_group: [getMajorMuscleGroup(exercise.muscle_group)],
                 muscle_group: [exercise.muscle_group],
                 exercise: [exercise.id]
               };
@@ -267,7 +291,10 @@ const WorkoutPlanPage = () => {
     const exercise = allExercises.find(ex => ex.id === exerciseId);
     if (!exercise) return;
 
+    const majorMuscleGroup = getMajorMuscleGroup(exercise.muscle_group);
+
     const newScheduleEntry = {
+      major_muscle_group: [majorMuscleGroup],
       muscle_group: [exercise.muscle_group],
       exercise: [exercise.id]
     };
@@ -357,63 +384,89 @@ const WorkoutPlanPage = () => {
         <div className="form-section">
           <h2>Workout Schedule (7 Days)</h2>
           <div className="schedule-container">
-            {daysOfWeek.map(day => (
-              <div key={day} className="schedule-day">
-                <h3>{day}</h3>
-                <ul className="exercise-list">
-                  {(editingPlan.schedule[day] || []).map((item, index) => {
-                    const exercise = exerciseMap[item.exercise[0]];
-                    return (
-                                          <li key={index} className="exercise-list-item">
-                                              <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : (typeof item.exercise[0] === 'object' ? item.exercise[0].display_name : item.exercise[0])}</span>
-                                              <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
-                                          </li>                    );
-                  })}
-                </ul>
-                <div className="add-exercise-controls">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor={`muscle-group-select-${day}`}>Muscle Group:</label>
-                    <select
-                      id={`muscle-group-select-${day}`}
-                      value={dailySelectedMuscleGroups[day]}
-                      onChange={(e) => setDailySelectedMuscleGroups({ ...dailySelectedMuscleGroups, [day]: e.target.value })}
-                      className="form-select"
-                    >
-                      <option value="">All Muscle Groups</option>
-                      {MUSCLE_GROUPS.map((group) => (
-                        <option key={group} value={group}>
-                          {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor={`exercise-select-${day}`}>Exercise:</label>
-                    <select
-                      id={`exercise-select-${day}`}
-                      value={dailySelectedExercises[day]}
-                      onChange={(e) => setDailySelectedExercises({ ...dailySelectedExercises, [day]: e.target.value })}
-                      disabled={dailyExercises[day].loading}
-                      className="form-select"
-                    >
-                      {dailyExercises[day].loading && <option>Loading exercises...</option>}
-                      {dailyExercises[day].error && <option>Error loading exercises</option>}
-                      {!dailyExercises[day].loading && dailyExercises[day].exercises.length === 0 && (
-                        <option>No exercises available</option>
-                      )}
-                      {!dailyExercises[day].loading &&
-                        dailyExercises[day].exercises.length > 0 &&
-                        dailyExercises[day].exercises.map((exercise) => (
-                          <option key={exercise.id} value={exercise.id}>
-                            {exercise.display_name}
+            {daysOfWeek.map(day => {
+              const muscleGroupsForSelectedMajor = dailySelectedMajorMuscleGroups[day]
+                ? MAJOR_MUSCLE_GROUPS[dailySelectedMajorMuscleGroups[day]]
+                : ALL_MUSCLE_GROUPS;
+
+              return (
+                <div key={day} className="schedule-day">
+                  <h3>{day}</h3>
+                  <ul className="exercise-list">
+                    {(editingPlan.schedule[day] || []).map((item, index) => {
+                      const exercise = exerciseMap[item.exercise[0]];
+                      return (
+                        <li key={index} className="exercise-list-item">
+                          <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : (typeof item.exercise[0] === 'object' ? item.exercise[0].display_name : item.exercise[0])}</span>
+                          <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="add-exercise-controls">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor={`major-muscle-group-select-${day}`}>Major Muscle Group:</label>
+                      <select
+                        id={`major-muscle-group-select-${day}`}
+                        value={dailySelectedMajorMuscleGroups[day]}
+                        onChange={(e) => {
+                          setDailySelectedMajorMuscleGroups({ ...dailySelectedMajorMuscleGroups, [day]: e.target.value });
+                          setDailySelectedMuscleGroups({ ...dailySelectedMuscleGroups, [day]: '' });
+                        }}
+                        className="form-select"
+                      >
+                        <option value="">All Major Groups</option>
+                        {Object.keys(MAJOR_MUSCLE_GROUPS).map((group) => (
+                          <option key={group} value={group}>
+                            {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
                           </option>
                         ))}
-                    </select>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor={`muscle-group-select-${day}`}>Muscle Group:</label>
+                      <select
+                        id={`muscle-group-select-${day}`}
+                        value={dailySelectedMuscleGroups[day]}
+                        onChange={(e) => setDailySelectedMuscleGroups({ ...dailySelectedMuscleGroups, [day]: e.target.value })}
+                        className="form-select"
+                      >
+                        <option value="">All Muscle Groups</option>
+                        {muscleGroupsForSelectedMajor.map((group) => (
+                          <option key={group} value={group}>
+                            {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor={`exercise-select-${day}`}>Exercise:</label>
+                      <select
+                        id={`exercise-select-${day}`}
+                        value={dailySelectedExercises[day]}
+                        onChange={(e) => setDailySelectedExercises({ ...dailySelectedExercises, [day]: e.target.value })}
+                        disabled={dailyExercises[day].loading}
+                        className="form-select"
+                      >
+                        {dailyExercises[day].loading && <option>Loading exercises...</option>}
+                        {dailyExercises[day].error && <option>Error loading exercises</option>}
+                        {!dailyExercises[day].loading && dailyExercises[day].exercises.length === 0 && (
+                          <option>No exercises available</option>
+                        )}
+                        {!dailyExercises[day].loading &&
+                          dailyExercises[day].exercises.length > 0 &&
+                          dailyExercises[day].exercises.map((exercise) => (
+                            <option key={exercise.id} value={exercise.id}>
+                              {exercise.display_name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <button onClick={() => handleAddToSchedule(day)} className="btn btn-primary">Add to {day}</button>
                   </div>
-                  <button onClick={() => handleAddToSchedule(day)} className="btn btn-primary">Add to {day}</button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
