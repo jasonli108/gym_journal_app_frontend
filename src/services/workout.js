@@ -76,3 +76,39 @@ export const updateWorkoutSession = async (sessionId, sessionData, token) => {
   }
   return response.json();
 };
+
+export const fetchMajorMuscleGroups = async (token) => {
+  const response = await fetch(`${API_BASE_URL}/major_muscle_groups/`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to fetch workout plans');
+  }
+
+  const res=response.json();
+  console.log('major muscle group response:', res);
+  return res;
+};
+
+export const fetchMuscleGroups = async (majorMuscleGroup,token) => {
+  console.log('majorMuscleGroup',majorMuscleGroup);
+  const response = await fetch(`${API_BASE_URL}/muscle_groups/?major_muscle_group=${majorMuscleGroup}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type':'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to create workout plan');
+  }
+
+  const res=response.json();
+  console.log('muscleGroup response: ', res);
+  return res;
+};

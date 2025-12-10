@@ -1,40 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './context/AuthContext.js';
-import { fetchExercises, createWorkoutSession, getLastUserWorkouts, deleteWorkoutSession, updateWorkoutSession } from './services/workout';
-
-const MAJOR_MUSCLE_GROUPS = {
-  ARMS: ['BICEPS', 'TRICEPS', 'FOREARMS'],
-  BACK: ['LATS', 'LOWER_BACK', 'UPPER_BACK', 'TRAPS'],
-  CHEST: ['CHEST'],
-  LEGS: ['ABDUCTORS', 'ADDUCTORS', 'CALVES', 'GLUTES', 'HAMSTRINGS', 'QUADS'],
-  ABS: ['ABS', 'OBLIQUES'],
-  SHOULDER: ['SHOULDERS'],
-};
-
-const ALL_MUSCLE_GROUPS = [
-  'ABDUCTORS',
-  'ABS',
-  'ADDUCTORS',
-  'BICEPS',
-  'CALVES',
-  'CHEST',
-  'FOREARMS',
-  'GLUTES',
-  'HAMSTRINGS',
-  'HIP_FLEXORS',
-  'IT_BAND',
-  'LATS',
-  'LOWER_BACK',
-  'UPPER_BACK',
-  'NECK',
-  'OBLIQUES',
-  'PALMAR_FASCIA',
-  'PLANTAR_FASCIA',
-  'QUADS',
-  'SHOULDERS',
-  'TRAPS',
-  'TRICEPS',
-];
+import { fetchExercises, fetchMajorMuscleGroups, fetchMuscleGroups, createWorkoutSession, getLastUserWorkouts, deleteWorkoutSession, updateWorkoutSession } from './services/workout';
 
 const formatMuscleGroupForAPI = (group) => {
   if (!group) return '';
@@ -44,6 +10,9 @@ const formatMuscleGroupForAPI = (group) => {
 
 const WorkoutPage = () => {
   const { user, token, loading: authLoading } = useAuth();
+  const [majorMuscleGroups, setMajorMuscleGroups] = useState([]);
+  const [subMuscleGroups, setsubMuscleGroups] = useState([]);
+  const [allMuscleGroups, setAllMuscleGroups] = useState([]);
   const [selectedMajorMuscleGroup, setSelectedMajorMuscleGroup] = useState('');
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
   const [exercises, setExercises] = useState([]);
@@ -52,10 +21,8 @@ const WorkoutPage = () => {
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
 
-  // State for the new workout session form
-  const [sessionDate, setSessionDate] = useState(
-    new Date().toISOString().split('T')[0],
-  );
+  // Form state
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentExerciseLogs, setCurrentExerciseLogs] = useState([]);
   const [selectedExerciseForAdd, setSelectedExerciseForAdd] = useState('');
   const [sets, setSets] = useState('');
@@ -65,10 +32,46 @@ const WorkoutPage = () => {
   const [workoutCreationMessage, setWorkoutCreationMessage] = useState('');
   const [workoutCreationError, setWorkoutCreationError] = useState('');
   
-  // State for recent workouts
+  // Recent workouts state
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [recentWorkoutsError, setRecentWorkoutsError] = useState('');
+
+  useEffect(() => {
+    const getInitialMuscleGroups = async () => {
+      try {
+        // Fetch major muscle groups
+        const majorGroups = await fetchMajorMuscleGroups();
+        setMajorMuscleGroups(majorGroups);
+
+        // Fetch all exercises to derive all possible minor muscle groups
+        const allExercises = await fetchExercises();
+        const uniqueMuscleGroups = [...new Set(allExercises.map(ex => ex.muscle_group))];
+        setAllMuscleGroups(uniqueMuscleGroups);
+
+      } catch (error) {
+        console.error("Failed to fetch initial muscle groups:", error);
+      }
+    };
+    getInitialMuscleGroups();
+  }, []);
+
+  useEffect(() => {
+    const getSubMuscleGroups = async () => {
+      if (selectedMajorMuscleGroup) {
+        try {
+          const minorGroups = await fetchMuscleGroups(selectedMajorMuscleGroup);
+          setsubMuscleGroups(minorGroups);
+        } catch (error) {
+          console.error(`Failed to fetch minor muscle groups for ${selectedMajorMuscleGroup}:`, error);
+          setsubMuscleGroups([]); // Reset on error
+        }
+      } else {
+        setsubMuscleGroups([]); // Reset if no major group is selected
+      }
+    };
+    getSubMuscleGroups();
+  }, [selectedMajorMuscleGroup]);
 
   const fetchRecentWorkouts = useCallback(async () => {
       if (!token || !user) return;
@@ -92,7 +95,7 @@ const WorkoutPage = () => {
     setEditingSession(session);
     setSessionDate(session.session_date);
     setCurrentExerciseLogs(session.exercises);
-    setIsCreatingWorkout(false); // Close creation form if open
+    setIsCreatingWorkout(false);
   };
 
   const handleCancelEdit = () => {
@@ -107,7 +110,7 @@ const WorkoutPage = () => {
     setRecentWorkoutsError('');
     try {
       await deleteWorkoutSession(sessionId, token);
-      await fetchRecentWorkouts(); // Refetch recent workouts after deletion
+      await fetchRecentWorkouts();
     } catch (err) {
       setRecentWorkoutsError(err.message);
     }
@@ -125,12 +128,10 @@ const WorkoutPage = () => {
       setEditingSession(null);
       setIsCreatingWorkout(true);
       setSessionDate(newDate);
-      // Deep copy exercises to avoid reference issues
       const copiedExercises = JSON.parse(JSON.stringify(session.exercises));
       setCurrentExerciseLogs(copiedExercises);
       setWorkoutCreationMessage('Workout session copied. Adjust as needed and save.');
       setWorkoutCreationError('');
-      // Scroll to the form
       window.scrollTo(0, 0);
     }
   };
@@ -140,8 +141,7 @@ const WorkoutPage = () => {
       setLoadingExercises(true);
       setExerciseError('');
       try {
-        const formattedMuscleGroup =
-          formatMuscleGroupForAPI(selectedMuscleGroup);
+        const formattedMuscleGroup = formatMuscleGroupForAPI(selectedMuscleGroup);
         const fetchedExercises = await fetchExercises(formattedMuscleGroup);
         setExercises(fetchedExercises);
         if (fetchedExercises.length > 0) {
@@ -155,8 +155,12 @@ const WorkoutPage = () => {
         setLoadingExercises(false);
       }
     };
-
-    getExercises();
+    if(selectedMuscleGroup){
+        getExercises();
+    } else {
+        setExercises([]);
+        setSelectedExerciseForAdd('');
+    }
   }, [selectedMuscleGroup]);
 
   const handleAddExercise = () => {
@@ -208,7 +212,6 @@ const WorkoutPage = () => {
         await createWorkoutSession(sessionData, token);
         setWorkoutCreationMessage('Workout session created successfully!');
       }
-      // Reset form
       setSessionDate(new Date().toISOString().split('T')[0]);
       setCurrentExerciseLogs([]);
       setIsCreatingWorkout(false);
@@ -230,8 +233,8 @@ const WorkoutPage = () => {
   }
 
   const muscleGroupsForSelectedMajor = selectedMajorMuscleGroup
-    ? MAJOR_MUSCLE_GROUPS[selectedMajorMuscleGroup]
-    : ALL_MUSCLE_GROUPS;
+    ? subMuscleGroups
+    : allMuscleGroups;
 
   const workoutForm = (
     <div className="form-container" style={{ marginTop: '20px', marginBottom: '20px' }}>
@@ -255,7 +258,7 @@ const WorkoutPage = () => {
             setSelectedMuscleGroup('');
           }} className="form-select">
             <option value="">All Major Groups</option>
-            {Object.keys(MAJOR_MUSCLE_GROUPS).map((group) => (
+            {majorMuscleGroups.map((group) => (
               <option key={group} value={group}>
                 {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
               </option>
