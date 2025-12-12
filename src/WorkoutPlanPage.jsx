@@ -326,7 +326,10 @@ const WorkoutPlanPage = () => {
 
     const newScheduleEntry = {
       muscle_group: [exercise.muscle_group],
-      exercise: [exercise.id]
+      exercise: [exercise.id],
+      sets: 0,
+      reps: 0,
+      weight: { value: 0.0, unit: 'lbs' }
     };
 
     if (dailyEditingExerciseIndex[day] !== null) {

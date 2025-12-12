@@ -176,7 +176,7 @@ const WorkoutPage = () => {
       exercise: searchTerm,
       sets: parseInt(sets),
       reps: parseInt(reps),
-      weight: weight ? { value: parseInt(weight), unit: weightUnit } : null,
+      weight: weight ? { value: parseFloat(weight), unit: weightUnit } : null,
     };
 
     if (editingExerciseIndex !== null) {
