@@ -54,6 +54,53 @@ code {
   padding: 20px;
 }
 
+@media (max-width: 768px) {
+  .App {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    width: 100%;
+    height: auto;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    order: -1; /* Puts the sidebar at the top */
+  }
+
+  .left-panel ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .left-panel li {
+    margin-bottom: 0;
+  }
+
+  .main-content {
+    padding: 15px;
+  }
+
+  .form-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 15px;
+  }
+
+  .schedule-container {
+    grid-template-columns: 1fr; /* Force single column on smaller screens */
+  }
+
+  h1 {
+    font-size: 2.5em; /* Adjust h1 size for mobile */
+  }
+  h2 {
+    font-size: 1.8em; /* Adjust h2 size for mobile */
+  }
+}
+
+
 /* Form Styles */
 .form-container {
   max-width: 800px;
