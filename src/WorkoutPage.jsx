@@ -2,12 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { fetchExercises, fetchMajorMuscleGroups, fetchMuscleGroups, createWorkoutSession, getLastUserWorkouts, deleteWorkoutSession, updateWorkoutSession } from './services/workout';
 
-const formatMuscleGroupForAPI = (group) => {
-  if (!group) return '';
-  // Convert "ABDUCTORS" to "Abductors"
-  return group.charAt(0).toUpperCase() + group.slice(1).toLowerCase();
-};
-
 const WorkoutPage = () => {
   const { user, token, loading: authLoading } = useAuth();
   const [majorMuscleGroups, setMajorMuscleGroups] = useState([]);
@@ -146,14 +140,8 @@ const WorkoutPage = () => {
     const getExercises = async () => {
       setLoadingExercises(true);
       try {
-        const formattedMuscleGroup = formatMuscleGroupForAPI(selectedMuscleGroup);
-        const fetchedExercises = await fetchExercises(formattedMuscleGroup);
+        const fetchedExercises = await fetchExercises(selectedMuscleGroup);
         setExercises(fetchedExercises);
-        if (fetchedExercises.length > 0) {
-          setSearchTerm(fetchedExercises[0].display_name);
-        } else {
-          setSearchTerm('');
-        }
       } catch (err) {
         console.error("Failed to fetch exercises:", err);
       } finally {

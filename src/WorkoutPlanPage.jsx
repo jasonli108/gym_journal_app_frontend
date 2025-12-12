@@ -3,11 +3,6 @@ import { useAuth } from './context/AuthContext.js';
 import { getWorkoutUserPlans, createWorkoutPlan, updateWorkoutPlan, deleteWorkoutPlan } from './services/workoutPlan';
 import { fetchExercises, fetchMajorMuscleGroups, fetchMuscleGroups } from './services/workout';
 
-const formatMuscleGroupForAPI = (group) => {
-  if (!group) return '';
-  return group.charAt(0).toUpperCase() + group.slice(1).toLowerCase();
-};
-
 const WorkoutPlanPage = () => {
   const { user, token, loading: authLoading } = useAuth();
   const [workoutPlans, setWorkoutPlans] = useState([]);
@@ -166,24 +161,24 @@ const WorkoutPlanPage = () => {
       const muscleGroup = dailySelectedMuscleGroups[day];
       setDailyExercises(prev => ({ ...prev, [day]: { ...prev[day], loading: true, error: '' } }));
       try {
-        const formattedMuscleGroup = formatMuscleGroupForAPI(muscleGroup);
-        const fetchedExercises = await fetchExercises(formattedMuscleGroup);
+        const fetchedExercises = await fetchExercises(muscleGroup);
         setDailyExercises(prev => ({ ...prev, [day]: { exercises: fetchedExercises, loading: false, error: '' } }));
-        
-        setDailySelectedExercises(prev => {
-          const currentlySelectedId = prev[day];
-          const isSelectedStillAvailable = fetchedExercises.some(ex => ex.id === currentlySelectedId);
-          if (!isSelectedStillAvailable) {
-            const firstExerciseId = fetchedExercises.length > 0 ? fetchedExercises[0].id : '';
-            if (fetchedExercises.length > 0) {
-              setDailySearchTerms(prev => ({ ...prev, [day]: fetchedExercises[0].display_name }));
-            } else {
-              setDailySearchTerms(prev => ({ ...prev, [day]: '' }));
-            }
-            return { ...prev, [day]: firstExerciseId };
-          }
-          return prev;
-        });
+
+        let newSelectedId = '';
+        let newSearchTerm = '';
+        const currentlySelectedId = dailySelectedExercises[day];
+
+        // Check if the previously selected exercise is still available
+        const previouslySelectedExercise = fetchedExercises.find(ex => ex.id === currentlySelectedId);
+
+        if (previouslySelectedExercise) {
+          newSelectedId = previouslySelectedExercise.id;
+          newSearchTerm = previouslySelectedExercise.display_name;
+        }
+
+        setDailySelectedExercises(prev => ({ ...prev, [day]: newSelectedId }));
+        setDailySearchTerms(prev => ({ ...prev, [day]: newSearchTerm }));
+
 
       } catch (err) {
         setDailyExercises(prev => ({ ...prev, [day]: { ...prev[day], loading: false, error: err.message } }));
@@ -200,7 +195,7 @@ const WorkoutPlanPage = () => {
     }
 
     prevDailySelectedMuscleGroupsRef.current = dailySelectedMuscleGroups;
-  }, [dailySelectedMuscleGroups]);
+  }, [dailySelectedMuscleGroups, dailySelectedExercises]);
 
   const handleAddPlan = async () => {
     setError('');
