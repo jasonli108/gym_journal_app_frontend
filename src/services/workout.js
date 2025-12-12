@@ -89,13 +89,10 @@ export const fetchMajorMuscleGroups = async (token) => {
     throw new Error(errorData.detail || 'Failed to fetch workout plans');
   }
 
-  const res=response.json();
-  console.log('major muscle group response:', res);
-  return res;
+  return response.json();
 };
 
 export const fetchMuscleGroups = async (majorMuscleGroup,token) => {
-  console.log('majorMuscleGroup',majorMuscleGroup);
   const response = await fetch(`${API_BASE_URL}/muscle_groups/?major_muscle_group=${majorMuscleGroup}`, {
     method: 'GET',
     headers: {
@@ -108,7 +105,5 @@ export const fetchMuscleGroups = async (majorMuscleGroup,token) => {
     throw new Error(errorData.detail || 'Failed to create workout plan');
   }
 
-  const res=response.json();
-  console.log('muscleGroup response: ', res);
-  return res;
+  return response.json();
 };

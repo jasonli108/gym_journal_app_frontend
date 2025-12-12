@@ -1,50 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { getWorkoutUserPlans, createWorkoutPlan, updateWorkoutPlan, deleteWorkoutPlan } from './services/workoutPlan';
-import { fetchExercises } from './services/workout';
-
-const MAJOR_MUSCLE_GROUPS = {
-  ARMS: ['BICEPS', 'TRICEPS', 'FOREARMS'],
-  BACK: ['LATS', 'LOWER_BACK', 'UPPER_BACK', 'TRAPS'],
-  CHEST: ['CHEST'],
-  LEGS: ['ABDUCTORS', 'ADDUCTORS', 'CALVES', 'GLUTES', 'HAMSTRINGS', 'QUADS'],
-  ABS: ['ABS', 'OBLIQUES'],
-  SHOULDER: ['SHOULDERS'],
-};
-
-const ALL_MUSCLE_GROUPS = [
-  'ABDUCTORS',
-  'ABS',
-  'ADDUCTORS',
-  'BICEPS',
-  'CALVES',
-  'CHEST',
-  'FOREARMS',
-  'GLUTES',
-  'HAMSTRINGS',
-  'HIP_FLEXORS',
-  'IT_BAND',
-  'LATS',
-  'LOWER_BACK',
-  'UPPER_BACK',
-  'NECK',
-  'OBLIQUES',
-  'PALMAR_FASCIA',
-  'PLANTAR_FASCIA',
-  'QUADS',
-  'SHOULDERS',
-  'TRAPS',
-  'TRICEPS',
-];
-
-const getMajorMuscleGroup = (muscleGroup) => {
-  for (const majorGroup in MAJOR_MUSCLE_GROUPS) {
-    if (MAJOR_MUSCLE_GROUPS[majorGroup].includes(muscleGroup)) {
-      return majorGroup;
-    }
-  }
-  return null;
-};
+import { fetchExercises, fetchMajorMuscleGroups, fetchMuscleGroups } from './services/workout';
 
 const formatMuscleGroupForAPI = (group) => {
   if (!group) return '';
@@ -57,6 +14,8 @@ const WorkoutPlanPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editingPlan, setEditingPlan] = useState(null);
+  const [majorMuscleGroups, setMajorMuscleGroups] = useState([]);
+  const [allMuscleGroups, setAllMuscleGroups] = useState([]);
   const [dailySelectedMajorMuscleGroups, setDailySelectedMajorMuscleGroups] = useState({
     Monday: '',
     Tuesday: '',
@@ -65,6 +24,15 @@ const WorkoutPlanPage = () => {
     Friday: '',
     Saturday: '',
     Sunday: '',
+  });
+  const [dailySubMuscleGroups, setDailySubMuscleGroups] = useState({
+    Monday: [],
+    Tuesday: [],
+    Wednesday: [],
+    Thursday: [],
+    Friday: [],
+    Saturday: [],
+    Sunday: [],
   });
   const [dailySelectedMuscleGroups, setDailySelectedMuscleGroups] = useState({
     Monday: '',
@@ -93,25 +61,61 @@ const WorkoutPlanPage = () => {
     Saturday: '',
     Sunday: '',
   });
+  const [dailySearchTerms, setDailySearchTerms] = useState({
+    Monday: '',
+    Tuesday: '',
+    Wednesday: '',
+    Thursday: '',
+    Friday: '',
+    Saturday: '',
+    Sunday: '',
+  });
+  const [dailyEditingExerciseIndex, setDailyEditingExerciseIndex] = useState({
+    Monday: null,
+    Tuesday: null,
+    Wednesday: null,
+    Thursday: null,
+    Friday: null,
+    Saturday: null,
+    Sunday: null,
+  });
+  const [dailyIsExerciseDropdownOpen, setDailyIsExerciseDropdownOpen] = useState({
+    Monday: false,
+    Tuesday: false,
+    Wednesday: false,
+    Thursday: false,
+    Friday: false,
+    Saturday: false,
+    Sunday: false,
+  });
   const [allExercises, setAllExercises] = useState([]);
   const [exerciseMap, setExerciseMap] = useState({});
 
   useEffect(() => {
-    const loadAllExercises = async () => {
+    const getInitialData = async () => {
       try {
+        const majorGroups = await fetchMajorMuscleGroups(token);
+        setMajorMuscleGroups(majorGroups);
+
         const exercises = await fetchExercises();
         setAllExercises(exercises);
+
+        const uniqueMuscleGroups = [...new Set(exercises.map(ex => ex.muscle_group))];
+        setAllMuscleGroups(uniqueMuscleGroups);
+
         const newMap = exercises.reduce((acc, ex) => {
           acc[ex.id] = ex;
           return acc;
         }, {});
         setExerciseMap(newMap);
       } catch (err) {
-        setError(err.message); // Or some other error handling
+        setError(err.message);
       }
     };
-    loadAllExercises();
-  }, []);
+    if (token) {
+      getInitialData();
+    }
+  }, [token]);
 
   const fetchPlans = useCallback(async () => {
     if (!token) return;
@@ -134,6 +138,30 @@ const WorkoutPlanPage = () => {
   const prevDailySelectedMuscleGroupsRef = useRef();
 
   useEffect(() => {
+    const fetchSubMuscleGroups = async (day) => {
+      const majorMuscleGroup = dailySelectedMajorMuscleGroups[day];
+      if (majorMuscleGroup) {
+        try {
+          const subGroups = await fetchMuscleGroups(majorMuscleGroup, token);
+          setDailySubMuscleGroups(prev => ({ ...prev, [day]: subGroups }));
+        } catch (err) {
+          setError(err.message);
+        }
+      } else {
+        setDailySubMuscleGroups(prev => ({ ...prev, [day]: [] }));
+      }
+    };
+
+    if (token) {
+      Object.keys(dailySelectedMajorMuscleGroups).forEach(day => {
+        if (dailySelectedMajorMuscleGroups[day]) {
+          fetchSubMuscleGroups(day);
+        }
+      });
+    }
+  }, [dailySelectedMajorMuscleGroups, token]);
+
+  useEffect(() => {
     const fetchDailyExercises = async (day) => {
       const muscleGroup = dailySelectedMuscleGroups[day];
       setDailyExercises(prev => ({ ...prev, [day]: { ...prev[day], loading: true, error: '' } }));
@@ -146,7 +174,13 @@ const WorkoutPlanPage = () => {
           const currentlySelectedId = prev[day];
           const isSelectedStillAvailable = fetchedExercises.some(ex => ex.id === currentlySelectedId);
           if (!isSelectedStillAvailable) {
-            return { ...prev, [day]: fetchedExercises.length > 0 ? fetchedExercises[0].id : '' };
+            const firstExerciseId = fetchedExercises.length > 0 ? fetchedExercises[0].id : '';
+            if (fetchedExercises.length > 0) {
+              setDailySearchTerms(prev => ({ ...prev, [day]: fetchedExercises[0].display_name }));
+            } else {
+              setDailySearchTerms(prev => ({ ...prev, [day]: '' }));
+            }
+            return { ...prev, [day]: firstExerciseId };
           }
           return prev;
         });
@@ -219,7 +253,6 @@ const WorkoutPlanPage = () => {
             const exercise = allExercises.find(ex => ex.display_name === exerciseDisplayName);
             if (exercise) {
               return {
-                major_muscle_group: [getMajorMuscleGroup(exercise.muscle_group)],
                 muscle_group: [exercise.muscle_group],
                 exercise: [exercise.id]
               };
@@ -291,21 +324,32 @@ const WorkoutPlanPage = () => {
     const exercise = allExercises.find(ex => ex.id === exerciseId);
     if (!exercise) return;
 
-    const majorMuscleGroup = getMajorMuscleGroup(exercise.muscle_group);
-
     const newScheduleEntry = {
-      major_muscle_group: [majorMuscleGroup],
       muscle_group: [exercise.muscle_group],
       exercise: [exercise.id]
     };
 
-    setEditingPlan(prevPlan => ({
-      ...prevPlan,
-      schedule: {
-        ...prevPlan.schedule,
-        [day]: [...prevPlan.schedule[day], newScheduleEntry]
-      }
-    }));
+    if (dailyEditingExerciseIndex[day] !== null) {
+      const updatedSchedule = [...editingPlan.schedule[day]];
+      updatedSchedule[dailyEditingExerciseIndex[day]] = newScheduleEntry;
+      setEditingPlan(prevPlan => ({
+        ...prevPlan,
+        schedule: {
+          ...prevPlan.schedule,
+          [day]: updatedSchedule
+        }
+      }));
+      setDailyEditingExerciseIndex({ ...dailyEditingExerciseIndex, [day]: null });
+    } else {
+      setEditingPlan(prevPlan => ({
+        ...prevPlan,
+        schedule: {
+          ...prevPlan.schedule,
+          [day]: [...prevPlan.schedule[day], newScheduleEntry]
+        }
+      }));
+    }
+    setDailySearchTerms({ ...dailySearchTerms, [day]: '' });
   };
 
   const handleRemoveFromSchedule = (day, index) => {
@@ -316,6 +360,13 @@ const WorkoutPlanPage = () => {
         [day]: prevPlan.schedule[day].filter((_, i) => i !== index)
       }
     }));
+  };
+
+  const handleEditExercise = (day, index) => {
+    const exerciseToEdit = editingPlan.schedule[day][index];
+    const exercise = allExercises.find(ex => ex.id === exerciseToEdit.exercise[0]);
+    setDailyEditingExerciseIndex({ ...dailyEditingExerciseIndex, [day]: index });
+    setDailySearchTerms({ ...dailySearchTerms, [day]: exercise.display_name });
   };
 
   if (authLoading) return <p>Loading authentication status...</p>;
@@ -386,8 +437,8 @@ const WorkoutPlanPage = () => {
           <div className="schedule-container">
             {daysOfWeek.map(day => {
               const muscleGroupsForSelectedMajor = dailySelectedMajorMuscleGroups[day]
-                ? MAJOR_MUSCLE_GROUPS[dailySelectedMajorMuscleGroups[day]]
-                : ALL_MUSCLE_GROUPS;
+                ? dailySubMuscleGroups[day]
+                : allMuscleGroups;
 
               return (
                 <div key={day} className="schedule-day">
@@ -398,7 +449,10 @@ const WorkoutPlanPage = () => {
                       return (
                         <li key={index} className="exercise-list-item">
                           <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : (typeof item.exercise[0] === 'object' ? item.exercise[0].display_name : item.exercise[0])}</span>
-                          <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
+                          <div>
+                            <button onClick={() => handleEditExercise(day, index)} className="btn btn-secondary btn-sm">Edit</button>
+                            <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
+                          </div>
                         </li>
                       );
                     })}
@@ -416,7 +470,7 @@ const WorkoutPlanPage = () => {
                         className="form-select"
                       >
                         <option value="">All Major Groups</option>
-                        {Object.keys(MAJOR_MUSCLE_GROUPS).map((group) => (
+                        {majorMuscleGroups.map((group) => (
                           <option key={group} value={group}>
                             {group.replace(/_/g, ' ').split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
                           </option>
@@ -440,29 +494,48 @@ const WorkoutPlanPage = () => {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="form-label" htmlFor={`exercise-select-${day}`}>Exercise:</label>
-                      <select
-                        id={`exercise-select-${day}`}
-                        value={dailySelectedExercises[day]}
-                        onChange={(e) => setDailySelectedExercises({ ...dailySelectedExercises, [day]: e.target.value })}
-                        disabled={dailyExercises[day].loading}
-                        className="form-select"
-                      >
-                        {dailyExercises[day].loading && <option>Loading exercises...</option>}
-                        {dailyExercises[day].error && <option>Error loading exercises</option>}
-                        {!dailyExercises[day].loading && dailyExercises[day].exercises.length === 0 && (
-                          <option>No exercises available</option>
+                      <label className="form-label" htmlFor={`exercise-search-${day}`}>Exercise:</label>
+                      <div className="autocomplete">
+                        <input
+                          id={`exercise-search-${day}`}
+                          type="text"
+                          placeholder="Search for an exercise"
+                          value={dailySearchTerms[day]}
+                          onChange={(e) => setDailySearchTerms({ ...dailySearchTerms, [day]: e.target.value })}
+                          onFocus={() => setDailyIsExerciseDropdownOpen({ ...dailyIsExerciseDropdownOpen, [day]: true })}
+                          onBlur={() => setTimeout(() => setDailyIsExerciseDropdownOpen({ ...dailyIsExerciseDropdownOpen, [day]: false }), 200)}
+                          className="form-input"
+                        />
+                        {dailyIsExerciseDropdownOpen[day] && (
+                          <ul className="autocomplete-items">
+                            {dailyExercises[day].loading && <li>Loading exercises...</li>}
+                            {dailyExercises[day].error && <li>Error loading exercises</li>}
+                            {!dailyExercises[day].loading && dailyExercises[day].exercises.length === 0 && (
+                              <li>No exercises available</li>
+                            )}
+                            {!dailyExercises[day].loading &&
+                              dailyExercises[day].exercises
+                                .filter(exercise => exercise.display_name.toLowerCase().includes(dailySearchTerms[day].toLowerCase()))
+                                .sort((a, b) => a.display_name.localeCompare(b.display_name))
+                                .map((exercise) => (
+                                  <li
+                                    key={exercise.id}
+                                    onClick={() => {
+                                      setDailySelectedExercises({ ...dailySelectedExercises, [day]: exercise.id });
+                                      setDailySearchTerms({ ...dailySearchTerms, [day]: exercise.display_name });
+                                      setDailyIsExerciseDropdownOpen({ ...dailyIsExerciseDropdownOpen, [day]: false });
+                                    }}
+                                  >
+                                    {exercise.display_name}
+                                  </li>
+                                ))}
+                          </ul>
                         )}
-                        {!dailyExercises[day].loading &&
-                          dailyExercises[day].exercises.length > 0 &&
-                          dailyExercises[day].exercises.map((exercise) => (
-                            <option key={exercise.id} value={exercise.id}>
-                              {exercise.display_name}
-                            </option>
-                          ))}
-                      </select>
+                      </div>
                     </div>
-                    <button onClick={() => handleAddToSchedule(day)} className="btn btn-primary">Add to {day}</button>
+                    <button onClick={() => handleAddToSchedule(day)} className="btn btn-primary">
+                      {dailyEditingExerciseIndex[day] !== null ? 'Update Exercise' : `Add to ${day}`}
+                    </button>
                   </div>
                 </div>
               );

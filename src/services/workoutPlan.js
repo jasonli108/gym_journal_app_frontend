@@ -4,14 +4,12 @@ const { API_BASE_URL } = config;
 
 
 export const getWorkoutUserPlans = async (token) => {
-  console.log('Token in getWorkoutUserPlans:', token);
   const response = await fetch(`${API_BASE_URL}/users/me/workoutplans/`, {
     headers: {
       'Authorization': `Bearer ${token}`,
     },
   });
   if (!response.ok) {
-    console.log('Response:', response);
     const errorData = await response.json();
     throw new Error(errorData.detail || 'Failed to fetch workout plans');
   }

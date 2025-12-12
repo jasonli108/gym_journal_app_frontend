@@ -18,8 +18,11 @@ const WorkoutPage = () => {
   const [exercises, setExercises] = useState([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [exerciseError, setExerciseError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState(null);
+  const [isExerciseDropdownOpen, setIsExerciseDropdownOpen] = useState(false);
 
   // Form state
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
@@ -145,9 +148,9 @@ const WorkoutPage = () => {
         const fetchedExercises = await fetchExercises(formattedMuscleGroup);
         setExercises(fetchedExercises);
         if (fetchedExercises.length > 0) {
-          setSelectedExerciseForAdd(fetchedExercises[0].display_name);
+          setSearchTerm(fetchedExercises[0].display_name);
         } else {
-          setSelectedExerciseForAdd('');
+          setSearchTerm('');
         }
       } catch (err) {
         setExerciseError(err.message);
@@ -159,22 +162,33 @@ const WorkoutPage = () => {
         getExercises();
     } else {
         setExercises([]);
-        setSelectedExerciseForAdd('');
+        setSearchTerm('');
     }
   }, [selectedMuscleGroup]);
 
   const handleAddExercise = () => {
-    if (!selectedExerciseForAdd || !sets || !reps) {
+    if (!searchTerm || !sets || !reps) {
       setWorkoutCreationError('Please select an exercise and enter sets/reps.');
       return;
     }
+
     const newLog = {
-      exercise: selectedExerciseForAdd,
+      exercise: searchTerm,
       sets: parseInt(sets),
       reps: parseInt(reps),
       weight: weight ? { value: parseInt(weight), unit: weightUnit } : null,
     };
-    setCurrentExerciseLogs([...currentExerciseLogs, newLog]);
+
+    if (editingExerciseIndex !== null) {
+      const updatedLogs = [...currentExerciseLogs];
+      updatedLogs[editingExerciseIndex] = newLog;
+      setCurrentExerciseLogs(updatedLogs);
+      setEditingExerciseIndex(null);
+    } else {
+      setCurrentExerciseLogs([...currentExerciseLogs, newLog]);
+    }
+
+    setSearchTerm('');
     setSets('');
     setReps('');
     setWeight('');
@@ -183,6 +197,21 @@ const WorkoutPage = () => {
 
   const handleRemoveExercise = (index) => {
     setCurrentExerciseLogs(currentExerciseLogs.filter((_, i) => i !== index));
+  };
+
+  const handleEditExercise = (index) => {
+    const exerciseToEdit = currentExerciseLogs[index];
+    setEditingExerciseIndex(index);
+    setSearchTerm(exerciseToEdit.exercise);
+    setSets(exerciseToEdit.sets);
+    setReps(exerciseToEdit.reps);
+    if (exerciseToEdit.weight) {
+      setWeight(exerciseToEdit.weight.value);
+      setWeightUnit(exerciseToEdit.weight.unit);
+    } else {
+      setWeight('');
+      setWeightUnit('lbs');
+    }
   };
 
   const handleCreateOrUpdateWorkoutSession = async () => {
@@ -277,13 +306,39 @@ const WorkoutPage = () => {
           </select>
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="exercise-select">Exercise:</label>
-          <select id="exercise-select" value={selectedExerciseForAdd} onChange={(e) => setSelectedExerciseForAdd(e.target.value)} disabled={loadingExercises} className="form-select">
-            {loadingExercises && <option>Loading exercises...</option>}
-            {!loadingExercises && exercises.map((exercise) => (
-              <option key={exercise.id} value={exercise.display_name}>{exercise.display_name}</option>
-            ))}
-          </select>
+          <label className="form-label" htmlFor="exercise-search">Exercise:</label>
+          <div className="autocomplete">
+            <input
+              id="exercise-search"
+              type="text"
+              placeholder="Search for an exercise"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setIsExerciseDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setIsExerciseDropdownOpen(false), 200)}
+              className="form-input"
+            />
+            {isExerciseDropdownOpen && (
+              <ul className="autocomplete-items">
+                {loadingExercises && <li>Loading exercises...</li>}
+                {!loadingExercises && exercises
+                  .filter(exercise => exercise.display_name.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .sort((a, b) => a.display_name.localeCompare(b.display_name))
+                  .map((exercise) => (
+                    <li
+                      key={exercise.id}
+                      onClick={() => {
+                        setSelectedExerciseForAdd(exercise.display_name);
+                        setSearchTerm(exercise.display_name);
+                        setIsExerciseDropdownOpen(false);
+                      }}
+                    >
+                      {exercise.display_name}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
         </div>
         <div className="form-group">
           <label className="form-label">Sets:</label>
@@ -301,7 +356,9 @@ const WorkoutPage = () => {
             <option value="lbs">lbs</option>
           </select>
         </div>
-        <button onClick={handleAddExercise} className="btn btn-primary">Add Exercise</button>
+        <button onClick={handleAddExercise} className="btn btn-primary">
+          {editingExerciseIndex !== null ? 'Update Exercise' : 'Add Exercise'}
+        </button>
       </div>
 
       <div className="form-section">
@@ -310,7 +367,10 @@ const WorkoutPage = () => {
           {currentExerciseLogs.map((log, index) => (
             <li key={index} className="exercise-list-item">
               <span>{log.exercise} - {log.sets} sets x {log.reps} reps {log.weight ? `x ${log.weight.value}${log.weight.unit}` : ''}</span>
-              <button onClick={() => handleRemoveExercise(index)} className="btn btn-danger btn-sm">Remove</button>
+              <div>
+                <button onClick={() => handleEditExercise(index)} className="btn btn-secondary btn-sm">Edit</button>
+                <button onClick={() => handleRemoveExercise(index)} className="btn btn-danger btn-sm">Remove</button>
+              </div>
             </li>
           ))}
         </ul>
