@@ -448,10 +448,12 @@ const WorkoutPlanPage = () => {
                   <h3>{day}</h3>
                   <ul className="exercise-list">
                     {(editingPlan.schedule[day] || []).map((item, index) => {
-                      const exercise = exerciseMap[item.exercise[0]];
+                      const exerciseIdFromItem = Array.isArray(item.exercise[0]) ? item.exercise[0][1] : item.exercise[0];
+                      const actualExerciseId = typeof exerciseIdFromItem === 'object' ? exerciseIdFromItem.id : exerciseIdFromItem;
+                      const exercise = exerciseMap[actualExerciseId];
                       return (
                         <li key={index} className="exercise-list-item">
-                          <span>{exercise ? `[${exercise.muscle_group}] ${exercise.display_name}` : (typeof item.exercise[0] === 'object' ? item.exercise[0].display_name : item.exercise[0])}</span>
+                          <span>{exercise ? `${exercise.major_muscle_group} - ${exercise.muscle_group} - ${exercise.display_name}` : `Exercise ID: ${(typeof item.exercise[0] === 'object' ? (item.exercise[0].display_name || JSON.stringify(item.exercise[0])) : item.exercise[0])} (Details not found)`}</span>
                           <div>
                             <button onClick={() => handleEditExercise(day, index)} className="btn btn-secondary btn-sm">Edit</button>
                             <button onClick={() => handleRemoveFromSchedule(day, index)} className="btn btn-danger btn-sm">Remove</button>
@@ -578,6 +580,34 @@ const WorkoutPlanPage = () => {
                 <strong>{plan.name || plan.workoutplan_summary.goal}</strong>
                 <button onClick={() => handleModifyPlan(plan)} style={{ marginLeft: '10px' }}>Modify</button>
                 <button onClick={() => handleRemovePlan(plan.workoutplan_id)} style={{ marginLeft: '10px' }}>Delete</button>
+                <ul>
+                  {Object.entries(plan.workoutplan_schedule || {}).map(([day, exercises]) => (
+                    Array.isArray(exercises) && exercises.length > 0 && (
+                      <li key={day}>
+                        <strong>{day}</strong>
+                        <ul>
+                          {exercises.map((item, index) => {
+                            const exerciseIdFromItem = Array.isArray(item.exercise[0]) ? item.exercise[0][1] : item.exercise[0];
+                            const actualExerciseId = typeof exerciseIdFromItem === 'object' ? exerciseIdFromItem.id : exerciseIdFromItem;
+                            const exerciseDetails = exerciseMap[actualExerciseId];
+                            if (exerciseDetails) {
+                              return (
+                                <li key={index}>
+                                  {exerciseDetails.major_muscle_group} - {exerciseDetails.muscle_group} - {exerciseDetails.display_name}
+                                </li>
+                              );
+                            }
+                            return (
+                              <li key={index}>
+                                Exercise ID: {typeof exerciseIdFromItem === 'object' ? (exerciseIdFromItem.display_name || JSON.stringify(exerciseIdFromItem)) : exerciseIdFromItem} (Details not found)
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    )
+                  ))}
+                </ul>
               </li>
             ))
           ) : (

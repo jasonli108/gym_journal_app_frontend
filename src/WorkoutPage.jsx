@@ -17,17 +17,16 @@ const WorkoutPage = () => {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
   const [exercises, setExercises] = useState([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
-  const [exerciseError, setExerciseError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [editingExerciseIndex, setEditingExerciseIndex] = useState(null);
   const [isExerciseDropdownOpen, setIsExerciseDropdownOpen] = useState(false);
+  const [exerciseMap, setExerciseMap] = useState({});
 
   // Form state
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentExerciseLogs, setCurrentExerciseLogs] = useState([]);
-  const [selectedExerciseForAdd, setSelectedExerciseForAdd] = useState('');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
@@ -48,16 +47,20 @@ const WorkoutPage = () => {
         setMajorMuscleGroups(majorGroups);
 
         // Fetch all exercises to derive all possible minor muscle groups
-        const allExercises = await fetchExercises();
-        const uniqueMuscleGroups = [...new Set(allExercises.map(ex => ex.muscle_group))];
+        const fetchedAllExercises = await fetchExercises();
+        const newMap = fetchedAllExercises.reduce((acc, ex) => {
+          acc[ex.display_name] = ex; // Use display_name as key for quick lookup
+          return acc;
+        }, {});
+        setExerciseMap(newMap);
+        const uniqueMuscleGroups = [...new Set(fetchedAllExercises.map(ex => ex.muscle_group))];
         setAllMuscleGroups(uniqueMuscleGroups);
-
       } catch (error) {
         console.error("Failed to fetch initial muscle groups:", error);
       }
     };
     getInitialMuscleGroups();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const getSubMuscleGroups = async () => {
@@ -142,7 +145,6 @@ const WorkoutPage = () => {
   useEffect(() => {
     const getExercises = async () => {
       setLoadingExercises(true);
-      setExerciseError('');
       try {
         const formattedMuscleGroup = formatMuscleGroupForAPI(selectedMuscleGroup);
         const fetchedExercises = await fetchExercises(formattedMuscleGroup);
@@ -153,7 +155,7 @@ const WorkoutPage = () => {
           setSearchTerm('');
         }
       } catch (err) {
-        setExerciseError(err.message);
+        console.error("Failed to fetch exercises:", err);
       } finally {
         setLoadingExercises(false);
       }
@@ -328,7 +330,6 @@ const WorkoutPage = () => {
                     <li
                       key={exercise.id}
                       onClick={() => {
-                        setSelectedExerciseForAdd(exercise.display_name);
                         setSearchTerm(exercise.display_name);
                         setIsExerciseDropdownOpen(false);
                       }}
@@ -364,15 +365,21 @@ const WorkoutPage = () => {
       <div className="form-section">
         <h4>Exercises in Current Session:</h4>
         <ul className="exercise-list">
-          {currentExerciseLogs.map((log, index) => (
-            <li key={index} className="exercise-list-item">
-              <span>{log.exercise} - {log.sets} sets x {log.reps} reps {log.weight ? `x ${log.weight.value}${log.weight.unit}` : ''}</span>
-              <div>
-                <button onClick={() => handleEditExercise(index)} className="btn btn-secondary btn-sm">Edit</button>
-                <button onClick={() => handleRemoveExercise(index)} className="btn btn-danger btn-sm">Remove</button>
-              </div>
-            </li>
-          ))}
+          {currentExerciseLogs.map((log, index) => {
+            const exerciseDetails = exerciseMap[log.exercise];
+            return (
+              <li key={index} className="exercise-list-item">
+                <span>
+                  {exerciseDetails ? `[${exerciseDetails.major_muscle_group} - ${exerciseDetails.muscle_group}] ` : ''}
+                  {log.exercise} - {log.sets} sets x {log.reps} reps {log.weight ? `x ${log.weight.value}${log.weight.unit}` : ''}
+                </span>
+                <div>
+                  <button onClick={() => handleEditExercise(index)} className="btn btn-secondary btn-sm">Edit</button>
+                  <button onClick={() => handleRemoveExercise(index)} className="btn btn-danger btn-sm">Remove</button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
       <div className="btn-group">
@@ -419,11 +426,18 @@ const WorkoutPage = () => {
               <li key={session.session_id} className="exercise-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
                 <strong>{session.session_date}</strong>
                 <ul className="exercise-list" style={{ width: '100%'}}>
-                  {session.exercises.map((ex, index) => (
-                    <li key={index} style={{ marginBottom: '5px' }}>
-                      {ex.exercise} - {ex.sets} sets x {ex.reps} reps {ex.weight ? `x ${ex.weight.value}${ex.weight.unit}` : ''}
-                    </li>
-                  ))}
+                  {session.exercises.map((ex, index) => {
+                    let exerciseDetails = exerciseMap[ex.exercise]; // Try lookup by display_name
+                    if (!exerciseDetails && !isNaN(ex.exercise)) { // If not found and ex.exercise is a number (potential ID)
+                      exerciseDetails = Object.values(exerciseMap).find(e => e.id === parseInt(ex.exercise));
+                    }
+                    return (
+                      <li key={index} style={{ marginBottom: '5px' }}>
+                        {exerciseDetails ? `[${exerciseDetails.major_muscle_group} - ${exerciseDetails.muscle_group}] ` : ''}
+                        {ex.exercise} - {ex.sets} sets x {ex.reps} reps {ex.weight ? `x ${ex.weight.value}${ex.weight.unit}` : ''}
+                      </li>
+                    );
+                  })}
                 </ul>
                 <div className="btn-group">
                   <button onClick={() => handleEditWorkout(session)} className="btn btn-secondary btn-sm">Edit</button>
