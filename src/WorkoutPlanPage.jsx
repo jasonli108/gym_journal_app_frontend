@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './context/AuthContext.js';
 import { getWorkoutUserPlans, createWorkoutPlan, updateWorkoutPlan, deleteWorkoutPlan } from './services/workoutPlan';
 import { fetchExercises, fetchMajorMuscleGroups, fetchMuscleGroups } from './services/workout';
+import Collapsible from './Collapsible';
 
 const WorkoutPlanPage = () => {
   const { user, token, loading: authLoading } = useAuth();
@@ -575,34 +576,38 @@ const WorkoutPlanPage = () => {
                 <strong>{plan.name || plan.workoutplan_summary.goal}</strong>
                 <button onClick={() => handleModifyPlan(plan)} style={{ marginLeft: '10px' }}>Modify</button>
                 <button onClick={() => handleRemovePlan(plan.workoutplan_id)} style={{ marginLeft: '10px' }}>Delete</button>
-                <ul>
-                  {Object.entries(plan.workoutplan_schedule || {}).map(([day, exercises]) => (
-                    Array.isArray(exercises) && exercises.length > 0 && (
-                      <li key={day}>
-                        <strong>{day}</strong>
-                        <ul>
-                          {exercises.map((item, index) => {
-                            const exerciseIdFromItem = Array.isArray(item.exercise[0]) ? item.exercise[0][1] : item.exercise[0];
-                            const actualExerciseId = typeof exerciseIdFromItem === 'object' ? exerciseIdFromItem.id : exerciseIdFromItem;
-                            const exerciseDetails = exerciseMap[actualExerciseId];
-                            if (exerciseDetails) {
+                <Collapsible
+                  title="View Details"
+                >
+                  <ul>
+                    {Object.entries(plan.workoutplan_schedule || {}).map(([day, exercises]) => (
+                      Array.isArray(exercises) && exercises.length > 0 && (
+                        <li key={day}>
+                          <strong>{day}</strong>
+                          <ul>
+                            {exercises.map((item, index) => {
+                              const exerciseIdFromItem = Array.isArray(item.exercise[0]) ? item.exercise[0][1] : item.exercise[0];
+                              const actualExerciseId = typeof exerciseIdFromItem === 'object' ? exerciseIdFromItem.id : exerciseIdFromItem;
+                              const exerciseDetails = exerciseMap[actualExerciseId];
+                              if (exerciseDetails) {
+                                return (
+                                  <li key={index}>
+                                    {exerciseDetails.major_muscle_group} - {exerciseDetails.muscle_group} - {exerciseDetails.display_name}
+                                  </li>
+                                );
+                              }
                               return (
                                 <li key={index}>
-                                  {exerciseDetails.major_muscle_group} - {exerciseDetails.muscle_group} - {exerciseDetails.display_name}
+                                  Exercise ID: {typeof exerciseIdFromItem === 'object' ? (exerciseIdFromItem.display_name || JSON.stringify(exerciseIdFromItem)) : exerciseIdFromItem} (Details not found)
                                 </li>
                               );
-                            }
-                            return (
-                              <li key={index}>
-                                Exercise ID: {typeof exerciseIdFromItem === 'object' ? (exerciseIdFromItem.display_name || JSON.stringify(exerciseIdFromItem)) : exerciseIdFromItem} (Details not found)
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </li>
-                    )
-                  ))}
-                </ul>
+                            })}
+                          </ul>
+                        </li>
+                      )
+                    ))}
+                  </ul>
+                </Collapsible>
               </li>
             ))
           ) : (
