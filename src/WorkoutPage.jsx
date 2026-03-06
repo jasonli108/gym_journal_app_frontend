@@ -21,10 +21,12 @@ const WorkoutPage = () => {
   // Form state
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [currentExerciseLogs, setCurrentExerciseLogs] = useState([]);
-  const [sets, setSets] = useState('');
-  const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState('');
+  const [sets, setSets] = useState('3');
+  const [reps, setReps] = useState('8');
+  const [weight, setWeight] = useState('158');
   const [weightUnit, setWeightUnit] = useState('lbs');
+  const [percentageOfCompletion, setPercentageOfCompletion] = useState(100);
+  const [comments, setComments] = useState('');
   const [workoutCreationMessage, setWorkoutCreationMessage] = useState('');
   const [workoutCreationError, setWorkoutCreationError] = useState('');
   
@@ -164,9 +166,11 @@ const WorkoutPage = () => {
 
     const newLog = {
       exercise: searchTerm,
-      sets: parseInt(sets),
-      reps: parseInt(reps),
+      sets: sets ? parseInt(sets) : null,
+      reps: reps ? parseInt(reps) : null,
       weight: weight ? { value: parseFloat(weight), unit: weightUnit } : null,
+      percentage_of_completion: percentageOfCompletion ? parseInt(percentageOfCompletion) : 100,
+      comments: comments || '',
     };
 
     if (editingExerciseIndex !== null) {
@@ -179,9 +183,12 @@ const WorkoutPage = () => {
     }
 
     setSearchTerm('');
-    setSets('');
-    setReps('');
-    setWeight('');
+    setSets('3');
+    setReps('8');
+    setWeight('158');
+    setWeightUnit('lbs');
+    setPercentageOfCompletion(100);
+    setComments('');
     setWorkoutCreationError('');
   };
 
@@ -194,7 +201,7 @@ const WorkoutPage = () => {
     setEditingExerciseIndex(index);
     setSearchTerm(exerciseToEdit.exercise);
     setSets(exerciseToEdit.sets);
-    setReps(exerciseToEdit.reps);
+    setReps(exerciseToEdit.reps || '');
     if (exerciseToEdit.weight) {
       setWeight(exerciseToEdit.weight.value);
       setWeightUnit(exerciseToEdit.weight.unit);
@@ -202,6 +209,8 @@ const WorkoutPage = () => {
       setWeight('');
       setWeightUnit('lbs');
     }
+    setPercentageOfCompletion(exerciseToEdit.percentage_of_completion || 100);
+    setComments(exerciseToEdit.comments || '');
   };
 
   const handleCreateOrUpdateWorkoutSession = async () => {
@@ -307,6 +316,7 @@ const WorkoutPage = () => {
               onFocus={() => setIsExerciseDropdownOpen(true)}
               onBlur={() => setTimeout(() => setIsExerciseDropdownOpen(false), 200)}
               className="form-input"
+              autoComplete="off"
             />
             {isExerciseDropdownOpen && (
               <ul className="autocomplete-items">
@@ -320,6 +330,10 @@ const WorkoutPage = () => {
                       onClick={() => {
                         setSearchTerm(exercise.display_name);
                         setIsExerciseDropdownOpen(false);
+                        if (exercise.major_muscle_group === 'Climbing' || exercise.major_muscle_group === 'CLIMBING') {
+                          setSets('1');
+                          setReps('1');
+                        }
                       }}
                     >
                       {exercise.display_name}
@@ -345,6 +359,16 @@ const WorkoutPage = () => {
             <option value="lbs">lbs</option>
           </select>
         </div>
+        {exerciseMap[searchTerm] && (exerciseMap[searchTerm].major_muscle_group === 'Climbing' || exerciseMap[searchTerm].major_muscle_group === 'CLIMBING') && (
+          <div className="form-group">
+            <label className="form-label">Percentage of Completion (%):</label>
+            <input type="number" value={percentageOfCompletion} onChange={(e) => setPercentageOfCompletion(e.target.value)} min="0" max="100" className="form-input" />
+          </div>
+        )}
+        <div className="form-group">
+          <label className="form-label">Comments:</label>
+          <textarea value={comments} onChange={(e) => setComments(e.target.value)} className="form-input" placeholder="Optional comments..." />
+        </div>
         <button onClick={handleAddExercise} className="btn btn-primary">
           {editingExerciseIndex !== null ? 'Update Exercise' : 'Add Exercise'}
         </button>
@@ -360,6 +384,8 @@ const WorkoutPage = () => {
                 <span>
                   {exerciseDetails ? `[${exerciseDetails.major_muscle_group} - ${exerciseDetails.muscle_group}] ` : ''}
                   {log.exercise} - {log.sets} sets x {log.reps} reps {log.weight ? `x ${log.weight.value}${log.weight.unit}` : ''}
+                  {log.percentage_of_completion !== undefined && log.percentage_of_completion !== null && log.percentage_of_completion !== 100 && ` (${log.percentage_of_completion}%)`}
+                  {log.comments && <div style={{ fontSize: '0.9em', color: '#ccc', fontStyle: 'italic' }}>{log.comments}</div>}
                 </span>
                 <div>
                   <button onClick={() => handleEditExercise(index)} className="btn btn-secondary btn-sm">Edit</button>
@@ -423,6 +449,8 @@ const WorkoutPage = () => {
                       <li key={index} style={{ marginBottom: '5px' }}>
                         {exerciseDetails ? `[${exerciseDetails.major_muscle_group} - ${exerciseDetails.muscle_group}] ` : ''}
                         {ex.exercise} - {ex.sets} sets x {ex.reps} reps {ex.weight ? `x ${ex.weight.value}${ex.weight.unit}` : ''}
+                        {ex.percentage_of_completion !== undefined && ex.percentage_of_completion !== null && ex.percentage_of_completion !== 100 && ` (${ex.percentage_of_completion}%)`}
+                        {ex.comments && <div style={{ fontSize: '0.9em', color: '#ccc', fontStyle: 'italic' }}>{ex.comments}</div>}
                       </li>
                     );
                   })}
